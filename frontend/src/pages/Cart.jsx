@@ -1,0 +1,19 @@
+import { ArrowLeft, ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { useCart } from '../context/useCart'
+
+const formatPrice = (price) => `$${Number(price).toFixed(2)}`
+
+export default function Cart() {
+  const { items, subtotal, setQuantity, removeItem } = useCart()
+
+  return <div className="page-enter min-h-[65vh] bg-paper">
+    <section className="bg-mist/70"><div className="mx-auto max-w-[1100px] px-5 pb-10 pt-12 md:px-10 md:pb-12 md:pt-16"><p className="eyebrow text-[10px] text-citrus">From our kitchen to you</p><h1 className="font-display mt-3 text-5xl md:text-6xl">Your bag</h1></div></section>
+    <section className="mx-auto grid max-w-[1100px] gap-10 px-5 py-10 md:grid-cols-[1.5fr_.7fr] md:px-10 md:py-14">
+      {items.length ? <>
+        <div className="divide-y divide-ink/10 border-y border-ink/10">{items.map((item) => <article key={item.id} className="flex gap-4 py-5"><img src={item.image} alt="" className="h-24 w-28 shrink-0 rounded-[4px] object-cover sm:h-28 sm:w-36" /><div className="flex min-w-0 flex-1 flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 className="font-display text-xl">{item.title}</h2><p className="mt-1 text-sm text-ink/55">{formatPrice(item.price)} each</p></div><div className="flex items-center justify-between gap-5 sm:justify-end"><div className="flex items-center gap-3 rounded-full border border-ink/15 px-2 py-1"><button onClick={() => item.quantity === 1 ? removeItem(item.id) : setQuantity(item.id, item.quantity - 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-mist" aria-label={`Decrease ${item.title} quantity`}><Minus size={14} /></button><span className="min-w-5 text-center text-sm font-semibold">{item.quantity}</span><button onClick={() => setQuantity(item.id, item.quantity + 1)} disabled={item.quantity >= 99} className="grid h-8 w-8 place-items-center rounded-full hover:bg-mist disabled:opacity-40" aria-label={`Increase ${item.title} quantity`}><Plus size={14} /></button></div><span className="w-20 text-right text-sm font-semibold">{formatPrice(item.price * item.quantity)}</span><button onClick={() => removeItem(item.id)} className="grid h-9 w-9 place-items-center rounded-full text-ink/45 hover:bg-red-50 hover:text-red-700" aria-label={`Remove ${item.title}`}><Trash2 size={15} /></button></div></div></article>)}</div>
+        <aside className="h-fit rounded-[5px] bg-white p-5 md:p-6"><h2 className="font-display text-2xl">Order summary</h2><div className="mt-5 flex justify-between border-t border-ink/10 pt-4 text-sm"><span className="text-ink/60">Subtotal</span><span className="font-semibold">{formatPrice(subtotal)}</span></div><p className="mt-3 text-xs leading-5 text-ink/45">Final pricing is confirmed when your order is placed.</p><Link to="/checkout" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-ink">Continue to checkout <ArrowRight size={16} /></Link><Link to="/menu" className="mt-4 inline-flex w-full items-center justify-center gap-2 text-xs font-semibold text-forest hover:text-citrus"><ArrowLeft size={14} /> Back to the menu</Link></aside>
+      </> : <div className="col-span-full py-16 text-center"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-mist text-forest"><ShoppingBag size={23} /></span><h2 className="font-display mt-5 text-3xl">Your bag is taking a breather.</h2><Link to="/menu" className="mt-6 inline-flex items-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white hover:bg-ink">Browse the menu <ArrowRight size={15} /></Link></div>}
+    </section>
+  </div>
+}

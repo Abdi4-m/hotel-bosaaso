@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  orders    Order[]
+  bookings  Booking[]
+}
+
+model Food {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  image       String
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  orderItems  OrderItem[]
+}
+
+model Room {
+  id                   String    @id @default(cuid())
+  roomNumber           String    @unique
+  name                 String    @default("Alder Room")
+  type                 String    @default("STANDARD")
+  hasEnsuiteBathroom   Boolean   @default(false)
+  pricePerNight        Float     @map("price")
+  isBooked             Boolean   @default(false)
+  image                String
+  description          String    @default("")
+  createdAt            DateTime  @default(now())
+  bookings             Booking[]
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderName String
+  email      String
+  subject    String
+  message    String
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  deliveryType   String      @default("HOME_DELIVERY")
+  customerName   String      @default("")
+  city           String?
+  neighborhood   String?
+  address        String?     @map("streetAddress")
+  roomNumber     String?
+  phone          String      @default("")
+  subtotal       Float       @default(0)
+  taxAmount      Float       @default(0)
+  totalAmount    Float       @map("total")
+  notes          String?
+  status         String      @default("PENDING")
+  paymentStatus  String      @default("UNPAID")
+  orderDate      DateTime    @default(now()) @map("createdAt")
+  items          OrderItem[]
+}
+
+model OrderItem {
+  id              String  @id @default(cuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  foodId          String?
+  food            Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  title           String
+  image           String
+  priceAtPurchase Float   @map("unitPrice")
+  quantity        Int
+}
+
+model Booking {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  checkIn       DateTime
+  checkOut      DateTime
+  guests        Int      @default(1)
+  totalPrice    Float
+  status        String   @default("CONFIRMED")
+  paymentStatus String   @default("UNPAID")
+  createdAt     DateTime @default(now())
+}

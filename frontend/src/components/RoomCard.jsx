@@ -1,0 +1,11 @@
+import { Bath, BedDouble } from 'lucide-react'
+
+export default function RoomCard({ room, onBook, availability }) {
+  const available = availability ?? !room.isBooked
+  return (
+    <article className="group overflow-hidden rounded-[5px] border border-ink/5 bg-white">
+      <div className="relative overflow-hidden bg-mist"><img src={room.image} alt={room.name || `${room.type} room ${room.roomNumber}`} loading="lazy" className="aspect-[1.35] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" onError={(event) => { event.currentTarget.src = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1200&q=80' }} /><span className={`absolute left-3 top-3 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider ${available ? 'bg-white/95 text-forest' : 'bg-ink/85 text-white'}`}>{available ? 'Available' : 'Occupied / Already booked'}</span></div>
+      <div className="p-4 md:p-5"><div className="flex items-start justify-between gap-3"><div><p className="eyebrow text-[10px] text-ink/45">Room {room.roomNumber}</p><h3 className="mt-1 font-display text-2xl">{room.name || room.type}</h3></div><BedDouble size={19} className="mt-1 text-forest" /></div><p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-ink/55">{room.description}</p><div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1.5 rounded-full bg-mist px-2.5 py-1 text-[10px] text-forest"><Bath size={12} />{room.hasEnsuiteBathroom ? 'Private ensuite' : 'Shared bathroom'}</span><span className="rounded-full bg-ink/5 px-2.5 py-1 text-[10px] text-ink/60">{room.type}</span></div><div className="mt-5 flex items-center justify-between border-t border-ink/10 pt-4"><p><span className="font-semibold">${Number(room.pricePerNight ?? room.price).toFixed(0)}</span><span className="ml-1 text-xs text-ink/50">/ night</span></p><button type="button" onClick={() => onBook(room)} disabled={!available} className="rounded-full bg-forest px-4 py-2 text-xs font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/30">{available ? 'Book room' : 'Unavailable'}</button></div></div>
+    </article>
+  )
+}
