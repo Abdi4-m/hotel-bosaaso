@@ -1,4 +1,5 @@
 const prisma = require("../lib/prisma");
+const { parseId } = require("../utils/parseId");
 
 function userError(message, status) {
   const error = new Error(message);
@@ -22,7 +23,8 @@ async function listUsers(req, res) {
 }
 
 async function deleteUser(req, res) {
-  const { id } = req.params;
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
   if (id === req.user.id) {
     return res.status(409).json({ error: "You cannot delete your own account" });
   }

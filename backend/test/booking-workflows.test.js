@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const prisma = require("../src/lib/prisma");
-const { updateBookingStatus } = require("../src/controllers/bookingController");
+const { createBooking, updateBookingStatus } = require("../src/controllers/bookingController");
 
 function response() {
   return {
@@ -18,13 +18,50 @@ function response() {
   };
 }
 
+test("booking creation accepts and persists integer room IDs", async (t) => {
+  const originalTransaction = prisma.$transaction;
+  let createdData;
+  prisma.$transaction = async (callback) => callback({
+    room: {
+      findUnique: async ({ where }) => {
+        assert.deepEqual(where, { id: 5 });
+        return { id: 5, isBooked: false, pricePerNight: 100 };
+      },
+    },
+    booking: {
+      findFirst: async ({ where }) => {
+        assert.equal(where.roomId, 5);
+        return null;
+      },
+      create: async ({ data }) => {
+        createdData = data;
+        return { id: 7, ...data };
+      },
+    },
+  });
+  t.after(() => {
+    prisma.$transaction = originalTransaction;
+  });
+
+  const res = response();
+  await createBooking({
+    body: { roomId: 5, checkIn: "2030-11-01", checkOut: "2030-11-03" },
+    user: { id: 3 },
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(createdData.userId, 3);
+  assert.equal(createdData.roomId, 5);
+  assert.equal(createdData.totalPrice, 200);
+});
+
 test("a customer can reconfirm their cancelled booking", async (t) => {
   const originalFindUnique = prisma.booking.findUnique;
   const originalTransaction = prisma.$transaction;
   const currentBooking = {
-    id: "booking-1",
-    userId: "user-1",
-    roomId: "room-1",
+    id: 10,
+    userId: 1,
+    roomId: 2,
     checkIn: new Date("2026-11-01"),
     checkOut: new Date("2026-11-03"),
     status: "CANCELLED",

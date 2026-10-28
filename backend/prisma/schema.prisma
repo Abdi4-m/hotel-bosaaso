@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        Int   @id @default(autoincrement())
   name      String
   email     String   @unique
   password  String
@@ -19,7 +19,7 @@ model User {
 }
 
 model Food {
-  id          String   @id @default(cuid())
+  id          Int  @id @default(autoincrement())
   title       String
   description String
   price       Float
@@ -30,7 +30,7 @@ model Food {
 }
 
 model Room {
-  id                   String    @id @default(cuid())
+  id                   Int   @id @default(autoincrement())
   roomNumber           String    @unique
   name                 String    @default("Alder Room")
   type                 String    @default("STANDARD")
@@ -44,7 +44,7 @@ model Room {
 }
 
 model Message {
-  id         String   @id @default(cuid())
+  id         Int  @id @default(autoincrement())
   senderName String
   email      String
   subject    String
@@ -53,8 +53,8 @@ model Message {
 }
 
 model Order {
-  id             String      @id @default(cuid())
-  userId         String
+  id             Int     @id @default(autoincrement())
+  userId         Int
   user           User        @relation(fields: [userId], references: [id], onDelete: Restrict)
   deliveryType   String      @default("HOME_DELIVERY")
   customerName   String      @default("")
@@ -74,10 +74,10 @@ model Order {
 }
 
 model OrderItem {
-  id              String  @id @default(cuid())
-  orderId         String
+  id              Int  @id @default(autoincrement())
+  orderId         Int
   order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  foodId          String?
+  foodId          Int?
   food            Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
   title           String
   image           String
@@ -86,10 +86,10 @@ model OrderItem {
 }
 
 model Booking {
-  id            String   @id @default(cuid())
-  userId        String
+  id            Int  @id @default(autoincrement())
+  userId        Int
   user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  roomId        String
+  roomId        Int
   room          Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
   checkIn       DateTime
   checkOut      DateTime

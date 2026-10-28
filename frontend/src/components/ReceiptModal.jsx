@@ -8,7 +8,7 @@ function deliveryAddress(order) {
 }
 
 export default function ReceiptModal({ order, onClose }) {
-  const reference = order.id.slice(-8).toUpperCase()
+  const reference = String(order.id).slice(-8).toUpperCase()
   const orderDate = order.orderDate || order.createdAt
 
   return <div className="receipt-backdrop fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/50 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.() }}>

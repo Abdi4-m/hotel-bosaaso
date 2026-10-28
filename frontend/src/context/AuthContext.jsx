@@ -4,7 +4,7 @@ import api from '../services/api'
 
 function isValidUser(user) {
   return user &&
-    typeof user.id === 'string' &&
+    ((Number.isSafeInteger(user.id) && user.id > 0) || (typeof user.id === 'string' && user.id.length > 0)) &&
     typeof user.name === 'string' &&
     typeof user.email === 'string' &&
     typeof user.role === 'string'

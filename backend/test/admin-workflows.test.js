@@ -29,7 +29,7 @@ test("room creation only sends fields present in the Prisma Room model", async (
   let receivedData;
   prisma.room.create = async ({ data }) => {
     receivedData = data;
-    return { id: "room-1", ...data };
+    return { id: 1, ...data };
   };
   t.after(() => {
     prisma.room.create = originalCreate;
@@ -59,18 +59,18 @@ test("user deletion removes bookings and orders before the user", async (t) => {
   const operations = [];
   prisma.$transaction = async (callback) => callback({
     user: {
-      findUnique: async () => ({ id: "user-1", role: "USER" }),
+      findUnique: async () => ({ id: 2, role: "USER" }),
       delete: async () => operations.push("user"),
     },
     booking: {
       deleteMany: async ({ where }) => {
-        assert.deepEqual(where, { userId: "user-1" });
+        assert.deepEqual(where, { userId: 2 });
         operations.push("bookings");
       },
     },
     order: {
       deleteMany: async ({ where }) => {
-        assert.deepEqual(where, { userId: "user-1" });
+        assert.deepEqual(where, { userId: 2 });
         operations.push("orders");
       },
     },
@@ -80,7 +80,7 @@ test("user deletion removes bookings and orders before the user", async (t) => {
   });
 
   const res = response();
-  await deleteUser({ params: { id: "user-1" }, user: { id: "admin-1" } }, res);
+  await deleteUser({ params: { id: "2" }, user: { id: 1 } }, res);
 
   assert.equal(res.statusCode, 204);
   assert.equal(res.ended, true);
@@ -92,7 +92,7 @@ test("user deletion protects the final administrator", async (t) => {
   let deletionAttempted = false;
   prisma.$transaction = async (callback) => callback({
     user: {
-      findUnique: async () => ({ id: "admin-2", role: "ADMIN" }),
+      findUnique: async () => ({ id: 2, role: "ADMIN" }),
       count: async () => 1,
       delete: async () => {
         deletionAttempted = true;
@@ -106,7 +106,7 @@ test("user deletion protects the final administrator", async (t) => {
   });
 
   const res = response();
-  await deleteUser({ params: { id: "admin-2" }, user: { id: "admin-1" } }, res);
+  await deleteUser({ params: { id: "2" }, user: { id: 1 } }, res);
 
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.error, "The last administrator cannot be deleted");

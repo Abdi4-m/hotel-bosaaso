@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
 const asyncHandler = require("../utils/asyncHandler");
+const { parseId } = require("../utils/parseId");
 
 const authMiddleware = asyncHandler(async (req, res, next) => {
   const authorization = req.get("authorization");
@@ -17,12 +18,13 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
-  if (typeof payload.sub !== "string" || typeof payload.role !== "string") {
+  const userId = parseId(payload.sub);
+  if (userId === null || typeof payload.role !== "string") {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
+    where: { id: userId },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
   });
   if (!user || user.role !== payload.role) {

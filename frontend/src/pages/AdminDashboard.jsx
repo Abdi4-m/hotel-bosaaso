@@ -107,7 +107,7 @@ export default function AdminDashboard() {
     try {
       const { data } = await api.patch(`/orders/${order.id}/status`, { status })
       setOrders((current) => current.map((item) => item.id === data.id ? data : item))
-      setNotice(`Order #${order.id.slice(-8).toUpperCase()} updated.`)
+      setNotice(`Order #${String(order.id).slice(-8).toUpperCase()} updated.`)
       toast.success('Order status updated.')
     } catch (requestError) {
       const message = requestError.response?.data?.error || 'The order status could not be updated.'
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
     try {
       await api.delete(`/orders/${order.id}`)
       setOrders((current) => current.filter((item) => item.id !== order.id))
-      setNotice(`Order #${order.id.slice(-8).toUpperCase()} deleted.`)
+      setNotice(`Order #${String(order.id).slice(-8).toUpperCase()} deleted.`)
       toast.success('Order deleted.')
     } catch (requestError) {
       const message = requestError.response?.data?.error || 'The order could not be deleted.'
@@ -175,8 +175,8 @@ export default function AdminDashboard() {
         {activeTab === 'orders' && <div>
           <div className="mb-5 flex flex-wrap gap-2">{['ALL', 'PENDING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].map((status) => <button key={status} onClick={() => setOrderFilter(status)} className={`rounded-full px-4 py-2 text-[10px] font-semibold uppercase tracking-wider ${orderFilter === status ? 'bg-forest text-white' : 'border border-ink/15 bg-white text-ink/60'}`}>{status.replaceAll('_', ' ')}</button>)}</div>
           <div className="grid gap-4 lg:grid-cols-2">{visibleOrders.map((order) => <article key={order.id} className="rounded-[5px] border border-ink/10 bg-white p-5 md:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow text-[10px] text-ink/45">Order #{order.id.slice(-8).toUpperCase()}</p><h2 className="font-display mt-2 text-2xl">{order.customerName || order.user.name}</h2><a href={`mailto:${order.user.email}`} className="mt-1 inline-block text-xs text-forest hover:underline">{order.user.email}</a><p className="mt-1 text-xs text-ink/55">{order.phone}</p></div>
-              <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setReceiptOrder(order)} className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-3 py-2 text-[10px] font-semibold hover:border-forest"><Printer size={14} /> Print Receipt</button><select aria-label="Update order status" value={order.status} onChange={(event) => updateOrderStatus(order, event.target.value)} className="rounded-full border border-ink/15 bg-paper px-3 py-2 text-[10px] font-semibold uppercase tracking-wider"><option value="PENDING">Pending</option><option value="OUT_FOR_DELIVERY">Out for delivery</option><option value="DELIVERED">Delivered</option><option value="CANCELLED">Cancelled</option></select>{order.status === 'PENDING' && <button type="button" onClick={() => removeOrder(order)} aria-label={`Delete order ${order.id.slice(-8).toUpperCase()}`} className="inline-flex items-center gap-2 rounded-full border border-red-700/15 px-3 py-2 text-[10px] font-semibold text-red-700 hover:bg-red-50"><Trash2 size={14} /> Delete</button>}</div>
+            <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow text-[10px] text-ink/45">Order #{String(order.id).slice(-8).toUpperCase()}</p><h2 className="font-display mt-2 text-2xl">{order.customerName || order.user.name}</h2><a href={`mailto:${order.user.email}`} className="mt-1 inline-block text-xs text-forest hover:underline">{order.user.email}</a><p className="mt-1 text-xs text-ink/55">{order.phone}</p></div>
+             <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => setReceiptOrder(order)} className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-3 py-2 text-[10px] font-semibold hover:border-forest"><Printer size={14} /> Print Receipt</button><select aria-label="Update order status" value={order.status} onChange={(event) => updateOrderStatus(order, event.target.value)} className="rounded-full border border-ink/15 bg-paper px-3 py-2 text-[10px] font-semibold uppercase tracking-wider"><option value="PENDING">Pending</option><option value="OUT_FOR_DELIVERY">Out for delivery</option><option value="DELIVERED">Delivered</option><option value="CANCELLED">Cancelled</option></select>{order.status === 'PENDING' && <button type="button" onClick={() => removeOrder(order)} aria-label={`Delete order ${String(order.id).slice(-8).toUpperCase()}`} className="inline-flex items-center gap-2 rounded-full border border-red-700/15 px-3 py-2 text-[10px] font-semibold text-red-700 hover:bg-red-50"><Trash2 size={14} /> Delete</button>}</div>
             </div>
             <div className="mt-4 rounded-[4px] bg-paper p-3 text-xs leading-5"><p className="font-semibold">{order.deliveryType === 'ROOM_DELIVERY' ? `Room delivery · ${order.roomNumber}` : 'Home delivery'}</p>{order.deliveryType === 'HOME_DELIVERY' && <p>{[order.address, order.neighborhood, order.city].filter(Boolean).join(', ')}</p>}</div>
             <div className="mt-4 divide-y divide-ink/10 border-y border-ink/10">{order.items.map((item) => <div key={item.id} className="flex items-center gap-3 py-3"><img src={item.image} alt="" className="h-11 w-12 rounded-[3px] object-cover" /><span className="min-w-0 flex-1 text-sm">{item.quantity} × {item.title}</span><span className="shrink-0 text-sm font-semibold">${((item.priceAtPurchase ?? item.unitPrice) * item.quantity).toFixed(2)}</span></div>)}</div>

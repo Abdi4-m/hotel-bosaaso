@@ -4,7 +4,7 @@ const formatPrice = (price) => `$${Number(price).toFixed(2)}`
 const formatDate = (date) => new Intl.DateTimeFormat('en', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(date))
 
 export default function BookingReceiptModal({ booking, onClose }) {
-  const reference = booking.id.slice(-8).toUpperCase()
+  const reference = String(booking.id).slice(-8).toUpperCase()
   const nights = Math.max(0, Math.round((new Date(booking.checkOut) - new Date(booking.checkIn)) / 86400000))
   const guests = booking.guests || 1
   const nightlyRate = Number(booking.room.pricePerNight ?? booking.totalPrice / Math.max(nights, 1))

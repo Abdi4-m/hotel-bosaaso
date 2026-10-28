@@ -1,5 +1,6 @@
 const prisma = require("../lib/prisma");
 const { getOrderTaxRate } = require("../utils/orderTaxRate");
+const { parseId } = require("../utils/parseId");
 
 const DELIVERY_TYPES = new Set(["HOME_DELIVERY", "ROOM_DELIVERY"]);
 const ORDER_STATUSES = new Set(["PENDING", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"]);
@@ -47,14 +48,15 @@ async function createOrder(req, res) {
 
   const quantities = new Map();
   for (const item of items) {
-    if (!item || typeof item.foodId !== "string" || !item.foodId.trim() || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+    const foodId = item && parseId(item.foodId);
+    if (!item || foodId === null || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
       return res.status(400).json({ error: "Each item needs a foodId and a whole-number quantity between 1 and 99" });
     }
-    const quantity = (quantities.get(item.foodId) || 0) + item.quantity;
+    const quantity = (quantities.get(foodId) || 0) + item.quantity;
     if (!Number.isSafeInteger(quantity) || quantity > 99) {
       return res.status(400).json({ error: "An item's combined quantity cannot exceed 99" });
     }
-    quantities.set(item.foodId, quantity);
+    quantities.set(foodId, quantity);
   }
 
   const foods = await prisma.food.findMany({
@@ -131,12 +133,14 @@ async function listOrders(req, res) {
 }
 
 async function updateOrderStatus(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
   const { status } = req.body || {};
   if (!ORDER_STATUSES.has(status)) {
     return res.status(400).json({ error: "Status must be PENDING, OUT_FOR_DELIVERY, DELIVERED, or CANCELLED" });
   }
   const order = await prisma.order.update({
-    where: { id: req.params.id },
+    where: { id },
     data: { status },
     include: { items: true, user: { select: { id: true, name: true, email: true } } },
   });
@@ -144,8 +148,10 @@ async function updateOrderStatus(req, res) {
 }
 
 async function deleteOrder(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
   const order = await prisma.order.findUnique({
-    where: { id: req.params.id },
+    where: { id },
     select: { id: true, userId: true, status: true },
   });
   if (!order) return res.status(404).json({ error: "Order not found" });

@@ -1,6 +1,6 @@
 const prisma = require("../lib/prisma");
-
 const { parseDateRange } = require("../utils/dateRange");
+const { parseId } = require("../utils/parseId");
 const ROOM_TYPES = new Set(["FAMILY", "STANDARD", "DELUXE"]);
 
 function validateRoom(body, partial = false) {
@@ -63,7 +63,9 @@ async function listRooms(req, res) {
 }
 
 async function getRoom(req, res) {
-  const room = await prisma.room.findUnique({ where: { id: req.params.id } });
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  const room = await prisma.room.findUnique({ where: { id } });
   if (!room) return res.status(404).json({ error: "Room not found" });
   return res.json(room);
 }
@@ -77,16 +79,20 @@ async function createRoom(req, res) {
 }
 
 async function updateRoom(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
   const validationError = validateRoom(req.body, true);
   if (validationError) return res.status(400).json({ error: validationError });
-  const room = await prisma.room.update({ where: { id: req.params.id }, data: roomData(req.body) });
+  const room = await prisma.room.update({ where: { id }, data: roomData(req.body) });
   return res.json(room);
 }
 
 async function deleteRoom(req, res) {
-  const booking = await prisma.booking.findFirst({ where: { roomId: req.params.id } });
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  const booking = await prisma.booking.findFirst({ where: { roomId: id } });
   if (booking) return res.status(409).json({ error: "A room with booking history cannot be deleted" });
-  await prisma.room.delete({ where: { id: req.params.id } });
+  await prisma.room.delete({ where: { id } });
   return res.status(204).end();
 }
 

@@ -1,4 +1,5 @@
 const prisma = require("../lib/prisma");
+const { parseId } = require("../utils/parseId");
 
 async function createMessage(req, res) {
   const { senderName, email, subject, message } = req.body;
@@ -26,7 +27,9 @@ async function listMessages(req, res) {
 }
 
 async function deleteMessage(req, res) {
-  await prisma.message.delete({ where: { id: req.params.id } });
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  await prisma.message.delete({ where: { id } });
   return res.status(204).end();
 }
 

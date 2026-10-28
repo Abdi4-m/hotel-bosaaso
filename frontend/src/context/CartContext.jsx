@@ -11,7 +11,9 @@ function cartStorageKey(userId) {
 function readCart(storageKey) {
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]')
-    return Array.isArray(stored) ? stored.filter((item) => item?.id && Number.isInteger(item.quantity) && item.quantity > 0) : []
+    return Array.isArray(stored)
+      ? stored.filter((item) => Number.isSafeInteger(item?.id) && item.id > 0 && Number.isInteger(item.quantity) && item.quantity > 0)
+      : []
   } catch {
     return []
   }

@@ -9,7 +9,7 @@ function publicUser(user) {
 
 function createToken(user) {
   return jwt.sign({ role: user.role }, process.env.JWT_SECRET, {
-    subject: user.id,
+    subject: String(user.id),
     expiresIn: "7d",
   });
 }

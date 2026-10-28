@@ -1,4 +1,5 @@
 const prisma = require("../lib/prisma");
+const { parseId } = require("../utils/parseId");
 
 function validateFood(body, partial = false) {
   const fields = ["title", "description", "image"];
@@ -33,7 +34,9 @@ async function listFoods(req, res) {
 }
 
 async function getFood(req, res) {
-  const food = await prisma.food.findUnique({ where: { id: req.params.id } });
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  const food = await prisma.food.findUnique({ where: { id } });
   if (!food) return res.status(404).json({ error: "Food not found" });
   return res.json(food);
 }
@@ -46,14 +49,18 @@ async function createFood(req, res) {
 }
 
 async function updateFood(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
   const validationError = validateFood(req.body, true);
   if (validationError) return res.status(400).json({ error: validationError });
-  const food = await prisma.food.update({ where: { id: req.params.id }, data: foodData(req.body, true) });
+  const food = await prisma.food.update({ where: { id }, data: foodData(req.body, true) });
   return res.json(food);
 }
 
 async function deleteFood(req, res) {
-  await prisma.food.delete({ where: { id: req.params.id } });
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  await prisma.food.delete({ where: { id } });
   return res.status(204).end();
 }
 

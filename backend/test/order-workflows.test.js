@@ -43,10 +43,10 @@ test("order creation persists the unified address field", async (t) => {
   const originalFindMany = prisma.food.findMany;
   const originalCreate = prisma.order.create;
   let createdData;
-  prisma.food.findMany = async () => [{ id: "food-1", title: "Soup", image: "soup.jpg", price: 8 }];
+  prisma.food.findMany = async () => [{ id: 1, title: "Soup", image: "soup.jpg", price: 8 }];
   prisma.order.create = async ({ data }) => {
     createdData = data;
-    return { id: "order-1", ...data };
+    return { id: 1, ...data };
   };
   t.after(() => {
     prisma.food.findMany = originalFindMany;
@@ -56,7 +56,7 @@ test("order creation persists the unified address field", async (t) => {
 
   await createOrder({
     body: {
-      items: [{ foodId: "food-1", quantity: 1 }],
+      items: [{ foodId: 1, quantity: 1 }],
       deliveryType: "HOME_DELIVERY",
       customerName: "Guest",
       phone: "0907878147",
@@ -64,7 +64,7 @@ test("order creation persists the unified address field", async (t) => {
       neighborhood: "Area 1",
       address: "Main Street",
     },
-    user: { id: "user-1" },
+    user: { id: 1 },
   }, res);
 
   assert.equal(res.statusCode, 201);
@@ -73,10 +73,10 @@ test("order creation persists the unified address field", async (t) => {
 });
 
 test("an order owner can delete their pending order", async (t) => {
-  const deleteCalls = mockOrder(t, { id: "order-1", userId: "user-1", status: "PENDING" });
+  const deleteCalls = mockOrder(t, { id: 1, userId: 1, status: "PENDING" });
   const res = response();
 
-  await deleteOrder({ params: { id: "order-1" }, user: { id: "user-1", role: "USER" } }, res);
+  await deleteOrder({ params: { id: "1" }, user: { id: 1, role: "USER" } }, res);
 
   assert.equal(res.statusCode, 204);
   assert.equal(res.ended, true);
@@ -84,10 +84,10 @@ test("an order owner can delete their pending order", async (t) => {
 });
 
 test("a non-owner cannot delete another user's order", async (t) => {
-  const deleteCalls = mockOrder(t, { id: "order-1", userId: "owner-1", status: "PENDING" });
+  const deleteCalls = mockOrder(t, { id: 1, userId: 2, status: "PENDING" });
   const res = response();
 
-  await deleteOrder({ params: { id: "order-1" }, user: { id: "user-2", role: "USER" } }, res);
+  await deleteOrder({ params: { id: "1" }, user: { id: 3, role: "USER" } }, res);
 
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.error, "You are not authorized to delete this order");
@@ -95,10 +95,10 @@ test("a non-owner cannot delete another user's order", async (t) => {
 });
 
 test("an administrator can delete another user's order", async (t) => {
-  const deleteCalls = mockOrder(t, { id: "order-1", userId: "owner-1", status: "PENDING" });
+  const deleteCalls = mockOrder(t, { id: 1, userId: 2, status: "PENDING" });
   const res = response();
 
-  await deleteOrder({ params: { id: "order-1" }, user: { id: "admin-1", role: "ADMIN" } }, res);
+  await deleteOrder({ params: { id: "1" }, user: { id: 3, role: "ADMIN" } }, res);
 
   assert.equal(res.statusCode, 204);
   assert.equal(res.ended, true);
@@ -109,7 +109,7 @@ test("deleting an unknown order returns not found", async (t) => {
   const deleteCalls = mockOrder(t, null);
   const res = response();
 
-  await deleteOrder({ params: { id: "missing-order" }, user: { id: "admin-1", role: "ADMIN" } }, res);
+  await deleteOrder({ params: { id: "999" }, user: { id: 3, role: "ADMIN" } }, res);
 
   assert.equal(res.statusCode, 404);
   assert.equal(res.body.error, "Order not found");
@@ -118,10 +118,10 @@ test("deleting an unknown order returns not found", async (t) => {
 
 for (const status of ["OUT_FOR_DELIVERY", "DELIVERED", "PROCESSING", "CONFIRMED", "CANCELLED"]) {
   test(`a ${status} order cannot be deleted`, async (t) => {
-    const deleteCalls = mockOrder(t, { id: "order-1", userId: "user-1", status });
+    const deleteCalls = mockOrder(t, { id: 1, userId: 1, status });
     const res = response();
 
-    await deleteOrder({ params: { id: "order-1" }, user: { id: "user-1", role: "USER" } }, res);
+    await deleteOrder({ params: { id: "1" }, user: { id: 1, role: "USER" } }, res);
 
     assert.equal(res.statusCode, 400);
     assert.equal(res.body.error, "Only pending orders can be deleted");
@@ -130,10 +130,10 @@ for (const status of ["OUT_FOR_DELIVERY", "DELIVERED", "PROCESSING", "CONFIRMED"
 }
 
 test("an administrator cannot delete a delivered order", async (t) => {
-  const deleteCalls = mockOrder(t, { id: "order-1", userId: "user-1", status: "DELIVERED" });
+  const deleteCalls = mockOrder(t, { id: 1, userId: 1, status: "DELIVERED" });
   const res = response();
 
-  await deleteOrder({ params: { id: "order-1" }, user: { id: "admin-1", role: "ADMIN" } }, res);
+  await deleteOrder({ params: { id: "1" }, user: { id: 3, role: "ADMIN" } }, res);
 
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error, "Only pending orders can be deleted");
@@ -157,13 +157,13 @@ test("room delivery rejects a room number that does not exist", async (t) => {
 
   await createOrder({
     body: {
-      items: [{ foodId: "food-1", quantity: 1 }],
+      items: [{ foodId: 1, quantity: 1 }],
       deliveryType: "ROOM_DELIVERY",
       customerName: "Guest",
       phone: "0907878147",
       roomNumber: "055566",
     },
-    user: { id: "user-1" },
+    user: { id: 1 },
   }, res);
 
   assert.equal(res.statusCode, 400);
@@ -178,12 +178,12 @@ test("room delivery accepts a room number found in the database", async (t) => {
   let createdData;
   prisma.room.findUnique = async ({ where }) => {
     assert.deepEqual(where, { roomNumber: "201" });
-    return { id: "room-1" };
+    return { id: 2 };
   };
-  prisma.food.findMany = async () => [{ id: "food-1", title: "Soup", image: "soup.jpg", price: 8 }];
+  prisma.food.findMany = async () => [{ id: 1, title: "Soup", image: "soup.jpg", price: 8 }];
   prisma.order.create = async ({ data }) => {
     createdData = data;
-    return { id: "order-1", ...data };
+    return { id: 1, ...data };
   };
   t.after(() => {
     prisma.room.findUnique = originalRoomFindUnique;
@@ -194,13 +194,13 @@ test("room delivery accepts a room number found in the database", async (t) => {
 
   await createOrder({
     body: {
-      items: [{ foodId: "food-1", quantity: 1 }],
+      items: [{ foodId: 1, quantity: 1 }],
       deliveryType: "ROOM_DELIVERY",
       customerName: "Guest",
       phone: "0907878147",
       roomNumber: " 201 ",
     },
-    user: { id: "user-1" },
+    user: { id: 1 },
   }, res);
 
   assert.equal(res.statusCode, 201);
