@@ -5,11 +5,11 @@ const { getAdminCredentials } = require("../prisma/seedConfig");
 test("seed config requires an admin email and a strong explicit password", () => {
   assert.throws(
     () => getAdminCredentials({}),
-    /Set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 12 characters/,
+    /Set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 10 characters/,
   );
   assert.throws(
-    () => getAdminCredentials({ ADMIN_EMAIL: "admin@example.com", ADMIN_PASSWORD: "short" }),
-    /Set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 12 characters/,
+    () => getAdminCredentials({ ADMIN_EMAIL: "admin@example.com", ADMIN_PASSWORD: "shortpass" }),
+    /Set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 10 characters/,
   );
 });
 

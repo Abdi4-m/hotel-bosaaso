@@ -9,6 +9,6 @@ router.post("/signup", asyncHandler(signup));
 router.post("/login", asyncHandler(signin));
 router.post("/signin", asyncHandler(signin));
 router.get("/me", authMiddleware, getCurrentUser);
-router.post("/logout", logout);
+router.post("/logout", authMiddleware, asyncHandler(logout));
 
 module.exports = router;

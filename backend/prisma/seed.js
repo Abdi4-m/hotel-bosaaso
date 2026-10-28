@@ -14,16 +14,28 @@ async function main() {
   const { adminEmail, adminPassword } = getAdminCredentials();
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: { name: "1Hotel Administrator", password: hashedPassword, role: "ADMIN" },
-    create: {
-      name: "1Hotel Administrator",
-      email: adminEmail,
-      password: hashedPassword,
-      role: "ADMIN",
-    },
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: { equals: adminEmail, mode: "insensitive" } },
+    select: { id: true },
   });
+  const adminData = {
+    name: "1Hotel Administrator",
+    email: adminEmail,
+    password: hashedPassword,
+    role: "ADMIN",
+  };
+
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: {
+        ...adminData,
+        adminSessionVersion: { increment: 1 },
+      },
+    });
+  } else {
+    await prisma.user.create({ data: adminData });
+  }
 
   for (const food of foodEntries) {
     await prisma.food.create({ data: food });

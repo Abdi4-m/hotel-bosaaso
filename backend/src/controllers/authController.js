@@ -3,15 +3,25 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
 
 function publicUser(user) {
-  const { password, ...safeUser } = user;
+  const { password, adminSessionVersion, ...safeUser } = user;
   return safeUser;
 }
 
 function createToken(user) {
-  return jwt.sign({ role: user.role }, process.env.JWT_SECRET, {
+  const payload = {
+    role: user.role,
+    ...(user.role === "ADMIN" ? { adminSessionVersion: user.adminSessionVersion } : {}),
+  };
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     subject: String(user.id),
     expiresIn: "7d",
   });
+}
+
+function validPasswordLength(password, role) {
+  return role === "ADMIN"
+    ? password.length >= 10
+    : role === "USER" && password.length >= 8 && password.length <= 12;
 }
 
 async function signup(req, res) {
@@ -19,8 +29,8 @@ async function signup(req, res) {
   if (![name, email, password].every((value) => typeof value === "string" && value.trim())) {
     return res.status(400).json({ error: "Name, email, and password are required" });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  if (!validPasswordLength(password, "USER")) {
+    return res.status(400).json({ error: "Password must be between 8 and 12 characters" });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -59,18 +69,31 @@ async function signin(req, res) {
     where: { email: { equals: normalizedEmail, mode: "insensitive" } },
   });
   const passwordMatches = user ? await bcrypt.compare(password, user.password) : false;
-  if (!passwordMatches) {
+  if (!passwordMatches || !validPasswordLength(password, user.role)) {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
-  return res.json({ user: publicUser(user), token: createToken(user) });
+  const authenticatedUser = user.role === "ADMIN"
+    ? await prisma.user.update({
+      where: { id: user.id },
+      data: { adminSessionVersion: { increment: 1 } },
+    })
+    : user;
+
+  return res.json({ user: publicUser(authenticatedUser), token: createToken(authenticatedUser) });
 }
 
 function getCurrentUser(req, res) {
-  return res.json({ user: req.user });
+  return res.json({ user: publicUser(req.user) });
 }
 
-function logout(req, res) {
+async function logout(req, res) {
+  if (req.user.role === "ADMIN") {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { adminSessionVersion: { increment: 1 } },
+    });
+  }
   return res.json({ message: "Logged out. Discard the bearer token on the client." });
 }
 

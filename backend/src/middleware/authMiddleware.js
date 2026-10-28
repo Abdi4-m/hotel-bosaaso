@@ -25,9 +25,15 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, adminSessionVersion: true, createdAt: true },
   });
-  if (!user || user.role !== payload.role) {
+  if (
+    !user ||
+    user.role !== payload.role ||
+    (user.role === "ADMIN" &&
+      (!Number.isSafeInteger(payload.adminSessionVersion) ||
+        payload.adminSessionVersion !== user.adminSessionVersion))
+  ) {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
