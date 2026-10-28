@@ -1,8 +1,10 @@
 function parseId(value) {
-  if (typeof value !== "string" && typeof value !== "number") return null;
-  if (typeof value === "string" && !/^\d+$/.test(value)) return null;
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
 
-  const id = Number(value);
+  const id = Number.parseInt(value, 10);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
