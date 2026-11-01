@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Footer from './components/Footer'
 import LoginRequiredRoute from './components/LoginRequiredRoute'
 import Navbar from './components/Navbar'
@@ -6,6 +7,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { ToastProvider } from './context/ToastContext'
+import { useAuth } from './context/useAuth'
+import api from './services/api'
 import AdminDashboard from './pages/AdminDashboard'
 import Account from './pages/Account'
 import Contact from './pages/Contact'
@@ -23,6 +26,7 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <CartProvider>
+            <PageViewTracker />
             <div className="flex min-h-screen flex-col">
               <Navbar />
               <main className="flex-1">
@@ -47,6 +51,20 @@ function App() {
       </AuthProvider>
     </BrowserRouter>
   )
+}
+
+function PageViewTracker() {
+  const { pathname } = useLocation()
+  const { isAuthLoading } = useAuth()
+
+  useEffect(() => {
+    if (isAuthLoading) return
+    api.post('/analytics/page-views', { pagePath: pathname }).catch((error) => {
+      console.error('Page view could not be recorded', error)
+    })
+  }, [pathname, isAuthLoading])
+
+  return null
 }
 
 export default App

@@ -49,4 +49,35 @@ const requireAdmin = (req, res, next) => {
   return next();
 };
 
-module.exports = { authMiddleware, requireAdmin };
+const optionalAuthMiddleware = asyncHandler(async (req, res, next) => {
+  const authorization = req.get("authorization");
+  if (!authorization) return next();
+  const [scheme, token] = authorization.split(" ");
+  if (scheme !== "Bearer" || !token) return next();
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return next();
+  }
+  const userId = parseId(payload.sub);
+  if (userId === null || typeof payload.role !== "string") return next();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, role: true, adminSessionVersion: true, createdAt: true },
+  });
+  if (
+    user &&
+    user.role === payload.role &&
+    (user.role !== "ADMIN" ||
+      (Number.isSafeInteger(payload.adminSessionVersion) &&
+        payload.adminSessionVersion === user.adminSessionVersion))
+  ) {
+    req.user = user;
+  }
+  return next();
+});
+
+module.exports = { authMiddleware, optionalAuthMiddleware, requireAdmin };

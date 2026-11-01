@@ -11,7 +11,7 @@ const formatPrice = (price) => `$${Number(price).toFixed(2)}`
 
 export default function Checkout() {
   const { user } = useAuth()
-  const { items, subtotal, clearCart } = useCart()
+  const { items, subtotal, clearCart, markOrderPending } = useCart()
   const [form, setForm] = useState({ deliveryType: 'HOME_DELIVERY', customerName: user?.name || '', phone: '', city: '', neighborhood: '', address: '', roomNumber: '', notes: '' })
   const [taxRate, setTaxRate] = useState(null)
   const [rooms, setRooms] = useState([])
@@ -91,6 +91,7 @@ export default function Checkout() {
         ...form,
       })
       setOrder(data)
+      markOrderPending(data.id)
       clearCart()
       toast.success('Order placed successfully.')
     } catch (requestError) {

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, LoaderCircle, ReceiptText, RotateCcw, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, LoaderCircle, ReceiptText, RotateCcw, Trash2, X } from 'lucide-react'
 import BookingReceiptModal from '../components/BookingReceiptModal'
 import ReceiptModal from '../components/ReceiptModal'
 import useToast from '../context/useToast'
 import api from '../services/api'
+import { useCart } from '../context/useCart'
 
 const money = (value) => `$${Number(value).toFixed(2)}`
 const dateTime = (value) => new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
@@ -13,12 +14,14 @@ export default function Account() {
   const [orders, setOrders] = useState([])
   const [bookings, setBookings] = useState([])
   const [updatingBookings, setUpdatingBookings] = useState(() => new Set())
+  const [updatingConfirmations, setUpdatingConfirmations] = useState(() => new Set())
   const [activeTab, setActiveTab] = useState('orders')
   const [receipt, setReceipt] = useState(null)
   const [bookingReceipt, setBookingReceipt] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const toast = useToast()
+  const { clearOrderNotification } = useCart()
 
   useEffect(() => {
     let active = true
@@ -63,11 +66,35 @@ export default function Account() {
     try {
       await api.delete(`/orders/${order.id}`)
       setOrders((current) => current.filter((item) => item.id !== order.id))
+      clearOrderNotification(order.id)
       toast.success('Order deleted.')
     } catch (requestError) {
       const message = requestError.response?.data?.error || 'The order could not be deleted.'
       setError(message)
       toast.error(message)
+    }
+  }
+
+  async function updateDeliveryConfirmation(type, record, confirmation) {
+    const key = `${type}-${record.id}`
+    if (updatingConfirmations.has(key)) return
+    setUpdatingConfirmations((current) => new Set(current).add(key))
+    try {
+      const { data } = await api.patch(`/${type === 'order' ? 'orders' : 'bookings'}/${record.id}/confirmation`, { confirmation })
+      const setRecords = type === 'order' ? setOrders : setBookings
+      setRecords((current) => current.map((item) => item.id === data.id ? data : item))
+      if (type === 'order') clearOrderNotification(record.id)
+      toast.success(confirmation === 'RECEIVED' ? 'Thanks for confirming receipt.' : 'Your delivery issue was reported.')
+    } catch (requestError) {
+      const message = requestError.response?.data?.error || 'Your confirmation could not be saved.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setUpdatingConfirmations((current) => {
+        const next = new Set(current)
+        next.delete(key)
+        return next
+      })
     }
   }
 
@@ -86,6 +113,7 @@ export default function Account() {
             <div className="mt-4 divide-y divide-ink/10 border-y border-ink/10">{order.items.map((item) => <div key={item.id} className="flex justify-between gap-4 py-3 text-sm"><span className="text-ink/70">{item.quantity} × {item.title}</span><span className="font-semibold">{money((item.priceAtPurchase ?? item.unitPrice) * item.quantity)}</span></div>)}</div>
             <div className="mt-4 flex items-center justify-between"><span className="text-xs text-ink/55">{order.deliveryType === 'ROOM_DELIVERY' ? `Room ${order.roomNumber}` : order.address}</span><span className="font-semibold">{money(order.totalAmount ?? order.total)}</span></div>
             <div className="mt-5 flex flex-wrap items-center gap-5"><button onClick={() => setReceipt(order)} className="inline-flex items-center gap-2 border-b border-forest/30 pb-1 text-xs font-semibold text-forest hover:text-citrus"><ReceiptText size={15} /> View / print receipt</button>{order.status === 'PENDING' && <button type="button" onClick={() => deleteOrder(order)} className="inline-flex items-center gap-2 border-b border-red-700/20 pb-1 text-xs font-semibold text-red-700 hover:text-red-900"><Trash2 size={14} /> Delete order</button>}</div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4"><span className="mr-2 text-xs text-ink/55">Delivery: {order.deliveryConfirmation === 'RECEIVED' ? 'I got it' : order.deliveryConfirmation === 'NOT_RECEIVED' ? 'No get' : 'Not confirmed'}</span><ConfirmationButton label="I got" confirmation="RECEIVED" current={order.deliveryConfirmation} disabled={updatingConfirmations.has(`order-${order.id}`)} onClick={() => updateDeliveryConfirmation('order', order, 'RECEIVED')} Icon={Check} /><ConfirmationButton label="No get" confirmation="NOT_RECEIVED" current={order.deliveryConfirmation} disabled={updatingConfirmations.has(`order-${order.id}`)} onClick={() => updateDeliveryConfirmation('order', order, 'NOT_RECEIVED')} Icon={X} /></div>
           </article>)}
           {!orders.length && <EmptyPanel message="Your food order history will appear here." />}
         </div>
@@ -99,6 +127,7 @@ export default function Account() {
               <button onClick={() => setBookingReceipt(booking)} className="inline-flex items-center gap-2 border-b border-forest/30 pb-1 text-xs font-semibold text-forest hover:text-citrus"><ReceiptText size={15} /> View / print receipt</button>
               {booking.status === 'CONFIRMED' && <button type="button" disabled={updatingBookings.has(booking.id)} onClick={() => toggleBookingStatus(booking)} className="inline-flex items-center gap-2 text-xs font-semibold text-citrus hover:text-ink"><RotateCcw size={14} /> Cancel booking</button>}
             </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4"><span className="mr-2 text-xs text-ink/55">Room: {booking.deliveryConfirmation === 'RECEIVED' ? 'I got it' : booking.deliveryConfirmation === 'NOT_RECEIVED' ? 'No get' : 'Not confirmed'}</span><ConfirmationButton label="I got" confirmation="RECEIVED" current={booking.deliveryConfirmation} disabled={updatingConfirmations.has(`booking-${booking.id}`)} onClick={() => updateDeliveryConfirmation('booking', booking, 'RECEIVED')} Icon={Check} /><ConfirmationButton label="No get" confirmation="NOT_RECEIVED" current={booking.deliveryConfirmation} disabled={updatingConfirmations.has(`booking-${booking.id}`)} onClick={() => updateDeliveryConfirmation('booking', booking, 'NOT_RECEIVED')} Icon={X} /></div>
           </article>)}
           {!bookings.length && <EmptyPanel message="Your room booking history will appear here." />}
         </div>
@@ -111,4 +140,8 @@ export default function Account() {
 
 function EmptyPanel({ message }) {
   return <div className="rounded-[5px] border border-dashed border-ink/15 bg-white px-6 py-16 text-center text-sm text-ink/50">{message}</div>
+}
+
+function ConfirmationButton({ label, confirmation, current, disabled, onClick, Icon }) {
+  return <button type="button" aria-pressed={current === confirmation} disabled={disabled} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${current === confirmation ? 'border-forest bg-mist text-forest' : 'border-ink/15 text-ink/60 hover:border-forest hover:text-forest'}`}><Icon size={13} />{label}</button>
 }

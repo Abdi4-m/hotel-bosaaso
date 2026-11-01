@@ -52,5 +52,6 @@ button { cursor: pointer; }
   .receipt-dialog { width: 100% !important; max-width: none !important; max-height: none !important; overflow: visible !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
   .receipt-print-sheet { border: 0 !important; padding: 0 !important; }
   .receipt-actions { display: none !important; }
+  .admin-delete-button { display: none !important; }
   @page { margin: 16mm; }
 }

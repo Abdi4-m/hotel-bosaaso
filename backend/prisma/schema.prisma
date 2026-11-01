@@ -8,44 +8,46 @@ datasource db {
 }
 
 model User {
-  id        Int   @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("USER")
-  adminSessionVersion Int @default(0)
-  createdAt DateTime @default(now())
-  orders    Order[]
-  bookings  Booking[]
+  id                  Int        @id @default(autoincrement())
+  name                String
+  email               String     @unique
+  password            String
+  role                String     @default("USER")
+  adminSessionVersion Int        @default(0)
+  createdAt           DateTime   @default(now())
+  orders              Order[]
+  bookings            Booking[]
+  pageViews           PageView[]
 }
 
 model Food {
-  id          Int  @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   title       String
   description String
   price       Float
   image       String
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  category    String?
+  isAvailable Boolean     @default(true)
+  createdAt   DateTime    @default(now())
   orderItems  OrderItem[]
 }
 
 model Room {
-  id                   Int   @id @default(autoincrement())
-  roomNumber           String    @unique
-  name                 String    @default("Alder Room")
-  type                 String    @default("STANDARD")
-  hasEnsuiteBathroom   Boolean   @default(false)
-  pricePerNight        Float     @map("price")
-  isBooked             Boolean   @default(false)
-  image                String
-  description          String    @default("")
-  createdAt            DateTime  @default(now())
-  bookings             Booking[]
+  id                 Int       @id @default(autoincrement())
+  roomNumber         String    @unique
+  name               String    @default("Alder Room")
+  type               String    @default("STANDARD")
+  hasEnsuiteBathroom Boolean   @default(false)
+  pricePerNight      Float     @map("price")
+  isBooked           Boolean   @default(false)
+  image              String
+  description        String    @default("")
+  createdAt          DateTime  @default(now())
+  bookings           Booking[]
 }
 
 model Message {
-  id         Int  @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   senderName String
   email      String
   subject    String
@@ -54,49 +56,71 @@ model Message {
 }
 
 model Order {
-  id             Int     @id @default(autoincrement())
-  userId         Int
-  user           User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  deliveryType   String      @default("HOME_DELIVERY")
-  customerName   String      @default("")
-  city           String?
-  neighborhood   String?
-  address        String?     @map("streetAddress")
-  roomNumber     String?
-  phone          String      @default("")
-  subtotal       Float       @default(0)
-  taxAmount      Float       @default(0)
-  totalAmount    Float       @map("total")
-  notes          String?
-  status         String      @default("PENDING")
-  paymentStatus  String      @default("UNPAID")
-  orderDate      DateTime    @default(now()) @map("createdAt")
-  items          OrderItem[]
+  id                   Int         @id @default(autoincrement())
+  userId               Int
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  deliveryType         String      @default("HOME_DELIVERY")
+  customerName         String      @default("")
+  city                 String?
+  neighborhood         String?
+  address              String?     @map("streetAddress")
+  roomNumber           String?
+  phone                String      @default("")
+  subtotal             Float       @default(0)
+  taxAmount            Float       @default(0)
+  totalAmount          Float       @map("total")
+  notes                String?
+  status               String      @default("PENDING")
+  paymentStatus        String      @default("UNPAID")
+  deliveryConfirmation String?
+  orderDate            DateTime    @default(now()) @map("createdAt")
+  items                OrderItem[]
 }
 
 model OrderItem {
-  id              Int  @id @default(autoincrement())
+  id              Int    @id @default(autoincrement())
   orderId         Int
-  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order           Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   foodId          Int?
-  food            Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  food            Food?  @relation(fields: [foodId], references: [id], onDelete: SetNull)
   title           String
   image           String
-  priceAtPurchase Float   @map("unitPrice")
+  priceAtPurchase Float  @map("unitPrice")
   quantity        Int
 }
 
 model Booking {
-  id            Int  @id @default(autoincrement())
-  userId        Int
-  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  roomId        Int
-  room          Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  checkIn       DateTime
-  checkOut      DateTime
-  guests        Int      @default(1)
-  totalPrice    Float
-  status        String   @default("CONFIRMED")
-  paymentStatus String   @default("UNPAID")
-  createdAt     DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  userId               Int
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  roomId               Int
+  room                 Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  checkIn              DateTime
+  checkOut             DateTime
+  guests               Int      @default(1)
+  totalPrice           Float
+  taxAmount            Float    @default(0)
+  status               String   @default("CONFIRMED")
+  paymentStatus        String   @default("UNPAID")
+  deliveryConfirmation String?
+  createdAt            DateTime @default(now())
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  actor     String
+  action    String
+  createdAt DateTime @default(now())
+}
+
+model PageView {
+  id           Int      @id @default(autoincrement())
+  userId       Int?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  visitorName  String
+  visitorEmail String?
+  pagePath     String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }

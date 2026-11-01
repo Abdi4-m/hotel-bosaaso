@@ -8,6 +8,10 @@ function cartStorageKey(userId) {
   return userId ? `cart_${userId}` : GUEST_CART_KEY
 }
 
+function notificationStorageKey(userId) {
+  return userId ? `order_notifications_${userId}` : 'order_notifications_guest'
+}
+
 function readCart(storageKey) {
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]')
@@ -19,14 +23,25 @@ function readCart(storageKey) {
   }
 }
 
+function readOrderNotifications(storageKey) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]')
+    return Array.isArray(stored) ? stored.filter((id) => Number.isSafeInteger(id) && id > 0) : []
+  } catch {
+    return []
+  }
+}
+
 export function CartProvider({ children }) {
   const { user } = useAuth()
   const storageKey = cartStorageKey(user?.id)
-  return <UserCartProvider key={storageKey} storageKey={storageKey}>{children}</UserCartProvider>
+  const notificationsKey = notificationStorageKey(user?.id)
+  return <UserCartProvider key={storageKey} storageKey={storageKey} notificationsKey={notificationsKey}>{children}</UserCartProvider>
 }
 
-function UserCartProvider({ children, storageKey }) {
+function UserCartProvider({ children, storageKey, notificationsKey }) {
   const [items, setItems] = useState(() => readCart(storageKey))
+  const [orderNotifications, setOrderNotifications] = useState(() => readOrderNotifications(notificationsKey))
   useEffect(() => {
     function clearCartOnLogout() {
       setItems([])
@@ -62,14 +77,34 @@ function UserCartProvider({ children, storageKey }) {
     saveItems([])
   }
 
+  function updateOrderNotifications(update) {
+    setOrderNotifications((current) => {
+      const nextNotifications = typeof update === 'function' ? update(current) : update
+      localStorage.setItem(notificationsKey, JSON.stringify(nextNotifications))
+      return nextNotifications
+    })
+  }
+
+  function markOrderPending(orderId) {
+    if (!Number.isSafeInteger(orderId) || orderId < 1) return
+    updateOrderNotifications((current) => [...new Set([...current, orderId])])
+  }
+
+  function clearOrderNotification(orderId) {
+    updateOrderNotifications((current) => current.filter((id) => id !== orderId))
+  }
+
   const value = {
     items,
     cartCount: items.reduce((count, item) => count + item.quantity, 0),
+    orderNoticeCount: orderNotifications.length,
     subtotal: items.reduce((total, item) => total + item.price * item.quantity, 0),
     addItem,
     setQuantity,
     removeItem,
     clearCart,
+    markOrderPending,
+    clearOrderNotification,
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

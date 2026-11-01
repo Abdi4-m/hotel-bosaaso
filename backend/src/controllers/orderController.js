@@ -155,15 +155,16 @@ async function deleteOrder(req, res) {
     select: { id: true, userId: true, status: true },
   });
   if (!order) return res.status(404).json({ error: "Order not found" });
-  if (order.userId !== req.user?.id && req.user?.role !== "ADMIN") {
+  const isAdmin = req.user?.role === "ADMIN";
+  if (order.userId !== req.user?.id && !isAdmin) {
     return res.status(403).json({ error: "You are not authorized to delete this order" });
   }
-  if (order.status !== "PENDING") {
+  if (!isAdmin && order.status !== "PENDING") {
     return res.status(400).json({ error: "Only pending orders can be deleted" });
   }
 
   const { count } = await prisma.order.deleteMany({
-    where: { id: order.id, status: "PENDING" },
+    where: { id: order.id, ...(isAdmin ? {} : { status: "PENDING" }) },
   });
   if (!count) {
     const existingOrder = await prisma.order.findUnique({
@@ -171,9 +172,28 @@ async function deleteOrder(req, res) {
       select: { id: true },
     });
     if (!existingOrder) return res.status(404).json({ error: "Order not found" });
+    if (isAdmin) return res.status(409).json({ error: "Order changed before it could be deleted. Refresh and try again." });
     return res.status(400).json({ error: "Only pending orders can be deleted" });
   }
   return res.status(204).end();
 }
 
-module.exports = { createOrder, listMyOrders, listOrders, updateOrderStatus, deleteOrder };
+async function updateOrderConfirmation(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  const { confirmation } = req.body || {};
+  if (!["RECEIVED", "NOT_RECEIVED"].includes(confirmation)) {
+    return res.status(400).json({ error: "Confirmation must be RECEIVED or NOT_RECEIVED" });
+  }
+  const order = await prisma.order.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  if (order.userId !== req.user.id) return res.status(403).json({ error: "You can only confirm your own orders" });
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: { deliveryConfirmation: confirmation },
+    include: { items: true, user: { select: { id: true, name: true, email: true } } },
+  });
+  return res.json(updatedOrder);
+}
+
+module.exports = { createOrder, listMyOrders, listOrders, updateOrderConfirmation, updateOrderStatus, deleteOrder };

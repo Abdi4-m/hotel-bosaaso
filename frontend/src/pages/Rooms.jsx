@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bath, BedDouble, CalendarDays, SlidersHorizontal } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import RoomBookingModal from '../components/RoomBookingModal'
 import RoomCard from '../components/RoomCard'
 import { useAuth } from '../context/useAuth'
@@ -10,6 +10,7 @@ const TODAY = new Date().toISOString().slice(0, 10)
 
 export default function Rooms() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { isLoggedIn } = useAuth()
   const [rooms, setRooms] = useState([])
   const [checkIn, setCheckIn] = useState('')
@@ -46,8 +47,10 @@ export default function Rooms() {
     const availabilityMatch = availability === 'all' || (availability === 'available' ? available : !available)
     const price = Number(room.pricePerNight ?? room.price)
     const priceMatch = price >= minPrice && price <= maxPrice
-    return bathroomMatch && familyMatch && availabilityMatch && priceMatch
-  }), [rooms, bathroom, family, availability, minPrice, maxPrice])
+    const query = (searchParams.get('search') || '').trim().toLowerCase()
+    const searchMatch = !query || `${room.name} ${room.roomNumber} ${room.type} ${room.description}`.toLowerCase().includes(query)
+    return bathroomMatch && familyMatch && availabilityMatch && priceMatch && searchMatch
+  }), [rooms, bathroom, family, availability, minPrice, maxPrice, searchParams])
 
   function startBooking(room) {
     if (!isLoggedIn) {

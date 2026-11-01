@@ -27,6 +27,7 @@ export default function BookingReceiptModal({ booking, onClose }) {
         <div className="ml-auto mt-5 max-w-64 space-y-3 text-xs">
           <div className="flex justify-between"><span>Length of stay</span><span>{nights} {nights === 1 ? 'night' : 'nights'}</span></div>
           <div className="flex justify-between"><span>Room rate · {nights} {nights === 1 ? 'night' : 'nights'}</span><span>{formatPrice(nightlyRate)} × {nights}</span></div>
+          <div className="flex justify-between"><span>Tax</span><span>{formatPrice(booking.taxAmount || 0)}</span></div>
           <div className="flex justify-between"><span>Payment status</span><span>{booking.paymentStatus.replaceAll('_', ' ')}</span></div>
           <div className="flex justify-between"><span>Booking status</span><span>{booking.status.replaceAll('_', ' ')}</span></div>
           <div className="flex justify-between border-t border-ink pt-3 text-sm font-bold"><span>Total</span><span>{formatPrice(booking.totalPrice)}</span></div>

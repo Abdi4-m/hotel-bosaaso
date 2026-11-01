@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { ArrowUpRight, Menu as MenuIcon, ShoppingBag, X } from 'lucide-react'
+import { ArrowUpRight, Menu as MenuIcon, Search, ShoppingBag, X } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { useCart } from '../context/useCart'
+import api from '../services/api'
 
 const links = [{ to: '/', label: 'Home' }, { to: '/menu', label: 'Restaurant' }, { to: '/rooms', label: 'Rooms' }, { to: '/contact', label: 'Contact' }]
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const { isLoggedIn, isAdmin, isAuthLoading, user, signOut } = useAuth()
-  const { cartCount } = useCart()
+  const { cartCount, orderNoticeCount } = useCart()
   const navigate = useNavigate()
   async function handleSignOut() { await signOut(); setOpen(false); navigate('/') }
   const linkClass = ({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`
@@ -19,14 +20,66 @@ export default function Navbar() {
       <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between px-5 md:px-10">
         <Link to="/" onClick={() => setOpen(false)} className="group flex items-center gap-3" aria-label="Hotel Bosaso home"><span className="grid h-10 w-10 place-items-center rounded-full bg-forest text-sm font-semibold tracking-tight text-white transition-transform group-hover:rotate-6">HB</span><span className="leading-tight"><span className="block font-display text-[19px] font-semibold">Hotel Bosaso</span><span className="eyebrow block text-[9px] text-ink/55">Rooms and staying house bosaso</span></span></Link>
         <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">{links.map((link) => <NavLink key={link.to} to={link.to} end={link.to === '/'} className={linkClass}>{link.label}</NavLink>)}</nav>
-        <div className="hidden items-center gap-3 lg:flex"><CartLink count={cartCount} />{isAuthLoading ? null : isLoggedIn ? <><Link className="nav-link" to="/account">My account</Link><span className="hidden text-xs text-ink/60 xl:block"> {user?.name?.split(' ')[0]}</span>{isAdmin && <Link className="nav-link" to="/admin">Admin Dashboard</Link>}<button onClick={handleSignOut} className="rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-ink hover:bg-white">Log out</button></> : <><Link to="/signin" className="px-2 py-2 text-sm font-semibold transition-colors hover:text-citrus">Sign in</Link><Link to="/signup" className="inline-flex items-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-ink">Join now<ArrowUpRight size={15} /></Link></>}</div>
-        <div className="flex items-center gap-2 lg:hidden"><CartLink count={cartCount} compact /><button onClick={() => setOpen(!open)} className="grid h-11 w-11 place-items-center rounded-full border border-ink/15" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>{open ? <X size={20} /> : <MenuIcon size={20} />}</button></div>
+        <div className="hidden items-center gap-3 lg:flex"><CatalogSearch isAdmin={isAdmin} /><CartLink count={cartCount} notificationCount={orderNoticeCount} />{isAuthLoading ? null : isLoggedIn ? <><Link className="nav-link" to="/account">My account</Link><span className="hidden text-xs text-ink/60 xl:block"> {user?.name?.split(' ')[0]}</span>{isAdmin && <Link className="nav-link" to="/admin">Admin Dashboard</Link>}<button onClick={handleSignOut} className="rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-ink hover:bg-white">Log out</button></> : <><Link to="/signin" className="px-2 py-2 text-sm font-semibold transition-colors hover:text-citrus">Sign in</Link><Link to="/signup" className="inline-flex items-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-ink">Join now<ArrowUpRight size={15} /></Link></>}</div>
+        <div className="flex items-center gap-2 lg:hidden"><CatalogSearch compact isAdmin={isAdmin} /><CartLink count={cartCount} notificationCount={orderNoticeCount} compact /><button onClick={() => setOpen(!open)} className="grid h-11 w-11 place-items-center rounded-full border border-ink/15" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>{open ? <X size={20} /> : <MenuIcon size={20} />}</button></div>
       </div>
       {open && <div className="absolute inset-x-0 top-full border-b border-ink/10 bg-paper px-5 pb-6 pt-3 shadow-soft lg:hidden"><nav className="flex flex-col" aria-label="Mobile navigation">{links.map((link) => <NavLink key={link.to} to={link.to} end={link.to === '/'} onClick={() => setOpen(false)} className={({ isActive }) => `border-b border-ink/10 py-4 font-display text-2xl ${isActive ? 'text-forest' : ''}`}>{link.label}</NavLink>)}{!isAuthLoading && <div className="flex flex-wrap gap-3 pt-5">{isLoggedIn ? <><Link onClick={() => setOpen(false)} to="/account" className="rounded-full border border-ink/20 px-5 py-3 text-sm font-semibold">My account</Link>{isAdmin && <Link onClick={() => setOpen(false)} to="/admin" className="rounded-full border border-ink/20 px-5 py-3 text-sm font-semibold">Admin Dashboard</Link>}<button onClick={handleSignOut} className="rounded-full border border-ink/20 px-5 py-3 text-sm font-semibold">Log out</button></> : <><Link onClick={() => setOpen(false)} to="/signin" className="rounded-full border border-ink/20 px-5 py-3 text-sm font-semibold">Sign in</Link><Link onClick={() => setOpen(false)} to="/signup" className="rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white">Join now</Link></>}</div>}</nav></div>}
     </header>
   )
 }
 
-function CartLink({ count, compact = false }) {
-  return <Link to="/cart" aria-label={`Cart, ${count} items`} className={`relative inline-flex h-11 items-center justify-center gap-2 rounded-full border border-ink/15 text-sm font-semibold transition-colors hover:border-forest hover:text-forest ${compact ? 'w-11' : 'px-4'}`}><ShoppingBag size={17} />{!compact && <span>Cart</span>}{count > 0 && <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-citrus px-1 text-[10px] text-white">{count}</span>}</Link>
+function CartLink({ count, notificationCount = 0, compact = false }) {
+  return <Link to="/cart" aria-label={`Cart, ${count} items${notificationCount ? `, ${notificationCount} order updates` : ''}`} className={`relative inline-flex h-11 items-center justify-center gap-2 rounded-full border border-ink/15 text-sm font-semibold transition-colors hover:border-forest hover:text-forest ${compact ? 'w-11' : 'px-4'}`}><ShoppingBag size={17} />{!compact && <span>Cart</span>}{count > 0 && <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-citrus px-1 text-[10px] text-white">{count}</span>}{notificationCount > 0 && <span title="Orders need your confirmation" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-red-600" />}</Link>
+}
+
+function CatalogSearch({ compact = false, isAdmin = false }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [foods, setFoods] = useState([])
+  const [rooms, setRooms] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const navigate = useNavigate()
+
+  function toggleSearch() {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    if (loaded) return
+    setLoading(true)
+    Promise.all([api.get('/foods'), api.get('/rooms')]).then(([foodResponse, roomResponse]) => {
+      setFoods(foodResponse.data)
+      setRooms(roomResponse.data)
+      setLoaded(true)
+      setError('')
+    }).catch(() => {
+      setError('Search could not be loaded. Please try again.')
+    }).finally(() => {
+      setLoading(false)
+    })
+  }
+
+  const normalizedQuery = query.trim().toLowerCase()
+  const foodResults = normalizedQuery ? foods.filter((food) =>
+    (isAdmin || food.isAvailable !== false)
+      && `${food.title} ${food.description} ${food.category || ''}`.toLowerCase().includes(normalizedQuery)).slice(0, 4) : []
+  const roomResults = normalizedQuery ? rooms.filter((room) =>
+    `${room.name} ${room.roomNumber} ${room.type} ${room.description}`.toLowerCase().includes(normalizedQuery)).slice(0, 4) : []
+
+  function openResult(path) {
+    setOpen(false)
+    navigate(path)
+  }
+
+  return <div className="relative">
+    <button type="button" onClick={toggleSearch} aria-label="Search food and rooms" aria-expanded={open} className={`grid h-11 w-11 place-items-center rounded-full border border-ink/15 transition-colors hover:border-forest hover:text-forest ${compact ? '' : 'bg-white'}`}><Search size={17} /></button>
+    {open && <div className={`absolute right-0 top-full z-50 mt-3 w-[min(90vw,360px)] rounded-[5px] border border-ink/10 bg-white p-4 shadow-soft ${compact ? 'right-0' : ''}`}><label className="field-label">Search food & rooms<input autoFocus className="field-input mt-2" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Dish, room name, or number" /></label>
+      {loading && <p className="mt-3 text-xs text-ink/50">Loading search...</p>}
+      {error && <p role="alert" className="mt-3 text-xs text-red-700">{error}</p>}
+      {normalizedQuery && !loading && <div className="mt-3 max-h-72 space-y-3 overflow-y-auto">{foodResults.map((food) => <button key={`food-${food.id}`} type="button" onClick={() => openResult(`/menu?search=${encodeURIComponent(query)}`)} className="block w-full text-left text-sm hover:text-forest"><span className="block font-semibold">{food.title}</span><span className="text-xs text-ink/50">Food · ${Number(food.price).toFixed(2)}</span></button>)}{roomResults.map((room) => <button key={`room-${room.id}`} type="button" onClick={() => openResult(`/rooms?search=${encodeURIComponent(query)}`)} className="block w-full text-left text-sm hover:text-forest"><span className="block font-semibold">{room.name}</span><span className="text-xs text-ink/50">Room {room.roomNumber} · ${Number(room.pricePerNight ?? room.price).toFixed(2)} / night</span></button>)}{!foodResults.length && !roomResults.length && <p className="text-xs text-ink/50">No food or rooms match that search.</p>}</div>}
+    </div>}
+  </div>
 }

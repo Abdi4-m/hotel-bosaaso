@@ -1,6 +1,7 @@
 const prisma = require("../lib/prisma");
 const { parseDateRange } = require("../utils/dateRange");
 const { parseId } = require("../utils/parseId");
+const { getOrderTaxRate } = require("../utils/orderTaxRate");
 
 function bookingError(message, status) {
   const error = new Error(message);
@@ -36,6 +37,8 @@ async function createBooking(req, res) {
       });
       if (conflict) throw bookingError("This room is already booked for those dates", 409);
 
+      const subtotal = Number((room.pricePerNight * nights).toFixed(2));
+      const taxAmount = Number((subtotal * getOrderTaxRate()).toFixed(2));
       return transaction.booking.create({
         data: {
           userId: req.user.id,
@@ -43,7 +46,8 @@ async function createBooking(req, res) {
           checkIn: range.checkIn,
           checkOut: range.checkOut,
           guests,
-          totalPrice: Number((room.pricePerNight * nights).toFixed(2)),
+          totalPrice: Number((subtotal + taxAmount).toFixed(2)),
+          taxAmount,
           status: "CONFIRMED",
           paymentStatus: "UNPAID",
         },
@@ -81,6 +85,15 @@ async function listBookings(req, res) {
     orderBy: { createdAt: "desc" },
   });
   return res.json(bookings);
+}
+
+async function deleteBooking(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+
+  const { count } = await prisma.booking.deleteMany({ where: { id } });
+  if (!count) return res.status(404).json({ error: "Booking not found" });
+  return res.status(204).end();
 }
 
 async function updateBookingStatus(req, res) {
@@ -125,4 +138,22 @@ async function updateBookingStatus(req, res) {
   return res.json(booking);
 }
 
-module.exports = { createBooking, listBookings, listMyBookings, updateBookingStatus };
+async function updateBookingConfirmation(req, res) {
+  const id = parseId(req.params.id);
+  if (id === null) return res.status(400).json({ error: "id must be a positive integer" });
+  const { confirmation } = req.body || {};
+  if (!["RECEIVED", "NOT_RECEIVED"].includes(confirmation)) {
+    return res.status(400).json({ error: "Confirmation must be RECEIVED or NOT_RECEIVED" });
+  }
+  const booking = await prisma.booking.findUnique({ where: { id }, select: { id: true, userId: true } });
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.userId !== req.user.id) return res.status(403).json({ error: "You can only confirm your own bookings" });
+  const updatedBooking = await prisma.booking.update({
+    where: { id },
+    data: { deliveryConfirmation: confirmation },
+    include: { room: true, user: { select: { id: true, name: true, email: true } } },
+  });
+  return res.json(updatedBooking);
+}
+
+module.exports = { createBooking, deleteBooking, listBookings, listMyBookings, updateBookingConfirmation, updateBookingStatus };

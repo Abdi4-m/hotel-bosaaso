@@ -1,5 +1,6 @@
 const prisma = require("../lib/prisma");
 const { parseId } = require("../utils/parseId");
+const FOOD_CATEGORIES = new Set(["BREAKFAST", "LUNCH", "DINNER"]);
 
 function validateFood(body, partial = false) {
   const fields = ["title", "description", "image"];
@@ -14,6 +15,11 @@ function validateFood(body, partial = false) {
   if (body.isAvailable !== undefined && typeof body.isAvailable !== "boolean") {
     return "isAvailable must be a boolean";
   }
+  if (body.category !== undefined && body.category !== "" && (
+    typeof body.category !== "string" || !FOOD_CATEGORIES.has(body.category.trim().toUpperCase())
+  )) {
+    return "category must be Breakfast, Lunch, or Dinner";
+  }
   return null;
 }
 
@@ -23,13 +29,28 @@ function foodData(body, partial = false) {
     if (body[field] !== undefined) data[field] = body[field].trim();
   }
   if (body.price !== undefined) data.price = Number(body.price);
+  if (body.category !== undefined) data.category = body.category.trim() ? body.category.trim().toUpperCase() : null;
   if (body.isAvailable !== undefined) data.isAvailable = body.isAvailable;
   if (!partial && data.isAvailable === undefined) data.isAvailable = true;
   return data;
 }
 
 async function listFoods(req, res) {
-  const foods = await prisma.food.findMany({ orderBy: { createdAt: "desc" } });
+  let where;
+  if (req.query.category !== undefined && req.query.category !== "All") {
+    const category = typeof req.query.category === "string" ? req.query.category.trim().toUpperCase() : "";
+    if (!FOOD_CATEGORIES.has(category)) {
+      return res.status(400).json({ error: "category must be Breakfast, Lunch, or Dinner" });
+    }
+    const title = category[0] + category.slice(1).toLowerCase();
+    where = {
+      OR: [
+        { category: { equals: category } },
+        { title: { equals: title, mode: "insensitive" } },
+      ],
+    };
+  }
+  const foods = await prisma.food.findMany({ where, orderBy: { createdAt: "desc" } });
   return res.json(foods);
 }
 

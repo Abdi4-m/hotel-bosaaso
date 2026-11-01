@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const prisma = require("../src/lib/prisma");
-const { createOrder, deleteOrder } = require("../src/controllers/orderController");
+const { createOrder, deleteOrder, updateOrderConfirmation } = require("../src/controllers/orderController");
 
 function response() {
   return {
@@ -69,6 +69,8 @@ test("order creation persists the unified address field", async (t) => {
 
   assert.equal(res.statusCode, 201);
   assert.equal(createdData.address, "Main Street");
+  assert.equal(createdData.taxAmount, 0.02);
+  assert.equal(createdData.totalAmount, 8.02);
   assert.equal(Object.hasOwn(createdData, "streetAddress"), false);
 });
 
@@ -129,15 +131,58 @@ for (const status of ["OUT_FOR_DELIVERY", "DELIVERED", "PROCESSING", "CONFIRMED"
   });
 }
 
-test("an administrator cannot delete a delivered order", async (t) => {
+test("an administrator can delete a delivered order", async (t) => {
   const deleteCalls = mockOrder(t, { id: 1, userId: 1, status: "DELIVERED" });
   const res = response();
 
   await deleteOrder({ params: { id: "1" }, user: { id: 3, role: "ADMIN" } }, res);
 
-  assert.equal(res.statusCode, 400);
-  assert.equal(res.body.error, "Only pending orders can be deleted");
-  assert.equal(deleteCalls(), 0);
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.ended, true);
+  assert.equal(deleteCalls(), 1);
+});
+
+test("a customer can confirm receipt of their own order", async (t) => {
+  const originalFindUnique = prisma.order.findUnique;
+  const originalUpdate = prisma.order.update;
+  prisma.order.findUnique = async () => ({ id: 4, userId: 2 });
+  prisma.order.update = async ({ data }) => ({ id: 4, ...data });
+  t.after(() => {
+    prisma.order.findUnique = originalFindUnique;
+    prisma.order.update = originalUpdate;
+  });
+
+  const res = response();
+  await updateOrderConfirmation({
+    params: { id: "4" },
+    body: { confirmation: "RECEIVED" },
+    user: { id: 2 },
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.deliveryConfirmation, "RECEIVED");
+});
+
+test("a customer cannot confirm another customer's order", async (t) => {
+  const originalFindUnique = prisma.order.findUnique;
+  const originalUpdate = prisma.order.update;
+  let updated = false;
+  prisma.order.findUnique = async () => ({ id: 4, userId: 3 });
+  prisma.order.update = async () => { updated = true; };
+  t.after(() => {
+    prisma.order.findUnique = originalFindUnique;
+    prisma.order.update = originalUpdate;
+  });
+
+  const res = response();
+  await updateOrderConfirmation({
+    params: { id: "4" },
+    body: { confirmation: "NOT_RECEIVED" },
+    user: { id: 2 },
+  }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(updated, false);
 });
 
 test("room delivery rejects a room number that does not exist", async (t) => {
