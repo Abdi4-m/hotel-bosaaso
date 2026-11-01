@@ -241,11 +241,12 @@ export default function AdminDashboard() {
   }
 
   async function openPageViews(offset = 0) {
+    const safeOffset = Number.isSafeInteger(offset) && offset >= 0 ? offset : 0
     setPageViewsOpen(true)
-    setPageViewsOffset(offset)
+    setPageViewsOffset(safeOffset)
     setPageViews(null)
     try {
-      const { data } = await api.get('/admin/page-views', { params: { offset } })
+      const { data } = await api.get('/admin/page-views', { params: { offset: safeOffset } })
       setPageViews(data)
     } catch (requestError) {
       const message = requestError.response?.data?.error || 'Page views could not be loaded.'

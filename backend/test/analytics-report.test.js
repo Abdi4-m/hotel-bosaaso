@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const prisma = require("../src/lib/prisma");
-const { getAnalyticsReport } = require("../src/controllers/analyticsController");
+const { getAnalyticsReport, listPageViews } = require("../src/controllers/analyticsController");
 
 function response() {
   return {
@@ -15,14 +15,69 @@ function response() {
       this.body = body;
       return this;
     },
+    end() {
+      return this;
+    },
   };
 }
+
+test("page views defaults invalid offsets to zero", async (t) => {
+  const originalCount = prisma.pageView.count;
+  const originalFindMany = prisma.pageView.findMany;
+  const originalAdminEmail = process.env.ADMIN_EMAIL;
+  const offsets = [];
+  const queries = [];
+  process.env.ADMIN_EMAIL = "admin@example.test";
+  prisma.pageView.count = async ({ where }) => {
+    queries.push(where);
+    return 0;
+  };
+  prisma.pageView.findMany = async ({ skip, where }) => {
+    offsets.push(skip);
+    queries.push(where);
+    return [];
+  };
+  t.after(() => {
+    prisma.pageView.count = originalCount;
+    prisma.pageView.findMany = originalFindMany;
+    if (originalAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = originalAdminEmail;
+  });
+
+  for (const query of [
+    {},
+    { offset: "NaN" },
+    { offset: "-10" },
+    { offset: "25oops" },
+    { offset: "1.5" },
+    { offset: "9007199254740992" },
+    { offset: "25" },
+  ]) {
+    const res = response();
+    await listPageViews({ query }, res);
+    assert.equal(res.statusCode, 200);
+  }
+
+  assert.deepEqual(offsets, [0, 0, 0, 0, 0, 0, 25]);
+  assert.equal(queries.length, 14);
+  assert.deepEqual(queries[0].pagePath.in, ["/", "/menu", "/rooms", "/cart", "/checkout", "/account", "/contact"]);
+  assert.deepEqual(queries[0].OR[0], { user: { is: null } });
+  assert.deepEqual(queries[0].OR[1].user.is.role, { not: "ADMIN", mode: "insensitive" });
+  assert.deepEqual(queries[0].OR[1].user.is.email, { not: "admin@example.test", mode: "insensitive" });
+  assert.deepEqual(queries[0].AND[0].OR, [
+    { visitorEmail: null },
+    { visitorEmail: { not: "admin@example.test", mode: "insensitive" } },
+  ]);
+  assert.deepEqual(queries[0], queries[1]);
+});
 
 test("analytics report isolates the selected month and calculates database metrics", async (t) => {
   const originalOrderFindMany = prisma.order.findMany;
   const originalBookingFindMany = prisma.booking.findMany;
   const originalPageViewFindMany = prisma.pageView.findMany;
+  const originalAdminEmail = process.env.ADMIN_EMAIL;
   const queries = {};
+  process.env.ADMIN_EMAIL = "admin@example.test";
   prisma.order.findMany = async (query) => {
     queries.orders = query;
     return [{
@@ -58,6 +113,8 @@ test("analytics report isolates the selected month and calculates database metri
     prisma.order.findMany = originalOrderFindMany;
     prisma.booking.findMany = originalBookingFindMany;
     prisma.pageView.findMany = originalPageViewFindMany;
+    if (originalAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = originalAdminEmail;
   });
 
   const res = response();
@@ -69,6 +126,12 @@ test("analytics report isolates the selected month and calculates database metri
   assert.deepEqual(queries.orders.where.status, { not: "CANCELLED" });
   assert.equal(queries.bookings.where.createdAt.gte.toISOString(), "2026-02-01T00:00:00.000Z");
   assert.equal(queries.views.where.createdAt.lt.toISOString(), "2026-03-01T00:00:00.000Z");
+  assert.deepEqual(queries.views.where.pagePath.in, ["/", "/menu", "/rooms", "/cart", "/checkout", "/account", "/contact"]);
+  assert.deepEqual(queries.views.where.OR[1].user.is.role, { not: "ADMIN", mode: "insensitive" });
+  assert.deepEqual(queries.views.where.AND[0].OR[1].visitorEmail, {
+    not: "admin@example.test",
+    mode: "insensitive",
+  });
   assert.equal(res.body.trend.length, 28);
   assert.equal(res.body.summary.revenue, 165);
   assert.equal(res.body.summary.foodOrders, 1);
@@ -98,6 +161,43 @@ test("analytics report isolates the selected month and calculates database metri
     paymentStatus: "UNPAID",
     createdAt: new Date("2026-02-02T10:00:00.000Z"),
   });
+});
+
+test("page view recording ignores admin identities and irrelevant routes", async (t) => {
+  const { recordPageView } = require("../src/controllers/analyticsController");
+  const originalCreate = prisma.pageView.create;
+  const originalAdminEmail = process.env.ADMIN_EMAIL;
+  const created = [];
+  process.env.ADMIN_EMAIL = "admin@example.test";
+  prisma.pageView.create = async ({ data }) => {
+    created.push(data);
+    return { id: 1 };
+  };
+  t.after(() => {
+    prisma.pageView.create = originalCreate;
+    if (originalAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = originalAdminEmail;
+  });
+
+  for (const req of [
+    { user: { id: 1, role: "ADMIN", email: "other@example.test" }, body: { pagePath: "/" } },
+    { user: { id: 2, role: "USER", email: "ADMIN@example.test" }, body: { pagePath: "/" } },
+    { user: { id: 3, role: "USER", email: "client@example.test" }, body: { pagePath: "/admin" } },
+    { user: { id: 4, role: "USER", email: "client@example.test" }, body: { pagePath: "/signin" } },
+  ]) {
+    const res = response();
+    await recordPageView(req, res);
+    assert.equal(res.statusCode, 204);
+  }
+
+  const res = response();
+  await recordPageView({
+    user: { id: 5, role: "USER", email: "client@example.test", name: "Client" },
+    body: { pagePath: "/rooms" },
+  }, res);
+  assert.equal(res.statusCode, 201);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].pagePath, "/rooms");
 });
 
 test("analytics report rejects unsupported ranges before querying Prisma", async (t) => {

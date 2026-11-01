@@ -1,6 +1,59 @@
 const prisma = require("../lib/prisma");
 
 const RANGE_TYPES = new Set(["day", "week", "month", "year"]);
+const PUBLIC_PAGE_PATHS = new Set([
+  "/",
+  "/menu",
+  "/rooms",
+  "/cart",
+  "/checkout",
+  "/account",
+  "/contact",
+]);
+
+function isRelevantPagePath(pagePath) {
+  return PUBLIC_PAGE_PATHS.has(pagePath);
+}
+
+function isAdministrator(user) {
+  if (typeof user?.role === "string" && user.role.toUpperCase() === "ADMIN") return true;
+  const administratorEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  return Boolean(
+    administratorEmail &&
+    typeof user?.email === "string" &&
+    user.email.trim().toLowerCase() === administratorEmail
+  );
+}
+
+function getPageViewWhere(createdAt) {
+  const administratorEmail = process.env.ADMIN_EMAIL?.trim();
+  const where = {
+    pagePath: { in: [...PUBLIC_PAGE_PATHS] },
+    OR: [
+      { user: { is: null } },
+      {
+        user: {
+          is: {
+            role: { not: "ADMIN", mode: "insensitive" },
+            ...(administratorEmail
+              ? { email: { not: administratorEmail, mode: "insensitive" } }
+              : {}),
+          },
+        },
+      },
+    ],
+  };
+  if (createdAt) where.createdAt = createdAt;
+  if (administratorEmail) {
+    where.AND = [{
+      OR: [
+        { visitorEmail: null },
+        { visitorEmail: { not: administratorEmail, mode: "insensitive" } },
+      ],
+    }];
+  }
+  return where;
+}
 
 function getDateRange(range, anchorValue) {
   if (!RANGE_TYPES.has(range)) {
@@ -105,7 +158,7 @@ async function getAnalyticsReport(req, res) {
       },
     }),
     prisma.pageView.findMany({
-      where: { createdAt: dateFilter },
+      where: getPageViewWhere(dateFilter),
       select: { createdAt: true, userId: true, visitorName: true, visitorEmail: true, pagePath: true },
     }),
   ]);
@@ -233,6 +286,9 @@ async function recordPageView(req, res) {
   if (typeof pagePath !== "string" || !pagePath.startsWith("/") || pagePath.length > 200) {
     return res.status(400).json({ error: "pagePath must be a path of 200 characters or fewer" });
   }
+  if (isAdministrator(req.user) || !isRelevantPagePath(pagePath)) {
+    return res.status(204).end();
+  }
   const view = await prisma.pageView.create({
     data: {
       userId: req.user?.id ?? null,
@@ -246,13 +302,16 @@ async function recordPageView(req, res) {
 }
 
 async function listPageViews(req, res) {
-  const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
-  if (!Number.isSafeInteger(offset) || offset < 0) {
-    return res.status(400).json({ error: "offset must be a non-negative integer" });
-  }
+  const offsetValue = req.query?.offset;
+  const parsedOffset = typeof offsetValue === "string" && offsetValue.trim() !== ""
+    ? Number(offsetValue)
+    : 0;
+  const offset = Number.isSafeInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+  const where = getPageViewWhere();
   const [total, pageViews] = await Promise.all([
-    prisma.pageView.count(),
+    prisma.pageView.count({ where }),
     prisma.pageView.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       skip: offset,
       take: 100,

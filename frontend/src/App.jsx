@@ -20,6 +20,8 @@ import Rooms from './pages/Rooms'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 
+const trackedPagePaths = new Set(['/', '/menu', '/rooms', '/cart', '/checkout', '/account', '/contact'])
+
 function App() {
   return (
     <BrowserRouter>
@@ -55,14 +57,14 @@ function App() {
 
 function PageViewTracker() {
   const { pathname } = useLocation()
-  const { isAuthLoading } = useAuth()
+  const { isAuthLoading, user } = useAuth()
 
   useEffect(() => {
-    if (isAuthLoading) return
+    if (isAuthLoading || user?.role?.toUpperCase() === 'ADMIN' || !trackedPagePaths.has(pathname)) return
     api.post('/analytics/page-views', { pagePath: pathname }).catch((error) => {
       console.error('Page view could not be recorded', error)
     })
-  }, [pathname, isAuthLoading])
+  }, [pathname, isAuthLoading, user])
 
   return null
 }
