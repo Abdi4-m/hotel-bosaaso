@@ -5,10 +5,10 @@ import RoomBookingModal from '../components/RoomBookingModal'
 import RoomCard from '../components/RoomCard'
 import { useAuth } from '../context/useAuth'
 import api from '../services/api'
-
-const TODAY = new Date().toISOString().slice(0, 10)
+import { useTodayDate } from '../utils/date'
 
 export default function Rooms() {
+  const today = useTodayDate()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isLoggedIn } = useAuth()
@@ -25,9 +25,14 @@ export default function Rooms() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
+  const selectedCheckIn = checkIn >= today ? checkIn : ''
+  const selectedCheckOut = selectedCheckIn && checkOut > selectedCheckIn ? checkOut : ''
+
   useEffect(() => {
     let active = true
-    const params = checkIn && checkOut ? { checkIn, checkOut } : {}
+    const params = selectedCheckIn && selectedCheckOut
+      ? { checkIn: selectedCheckIn, checkOut: selectedCheckOut }
+      : {}
     api.get('/rooms', { params }).then(({ data }) => {
       if (active) {
         setRooms(data)
@@ -37,7 +42,7 @@ export default function Rooms() {
       if (active) setError(requestError.response?.data?.error || 'Rooms could not be loaded.')
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [checkIn, checkOut])
+  }, [selectedCheckIn, selectedCheckOut, today])
 
   const highestPrice = Math.max(300, ...rooms.map((room) => Number(room.pricePerNight ?? room.price)))
   const filteredRooms = useMemo(() => rooms.filter((room) => {
@@ -70,7 +75,7 @@ export default function Rooms() {
 
   return <div className="page-enter">
     <section className="bg-mist/70"><div className="mx-auto max-w-[1440px] px-5 pb-10 pt-12 md:px-10 md:pb-12 md:pt-16"><p className="eyebrow text-[10px] text-citrus">A good night's rest</p><div className="mt-3 flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><h1 className="font-display text-5xl md:text-7xl">Rooms to settle into.</h1><p className="mt-4 max-w-xl text-sm leading-6 text-ink/60 md:text-base">Find a room for your dates, then make yourself at home.</p></div><span className="inline-flex items-center gap-2 text-sm text-ink/55"><BedDouble size={17} /> {rooms.length} rooms in the house</span></div>
-      <div className="mt-7 grid gap-3 rounded-[5px] border border-ink/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end md:max-w-2xl"><label className="field-label">Check-in<input className="field-input" type="date" min={TODAY} value={checkIn} onChange={(event) => { setLoading(true); setCheckIn(event.target.value) }} /></label><label className="field-label">Check-out<input className="field-input" type="date" min={checkIn || TODAY} value={checkOut} onChange={(event) => { setLoading(true); setCheckOut(event.target.value) }} /></label><CalendarDays size={20} className="mb-3 hidden text-forest sm:block" /></div>
+      <div className="mt-7 grid gap-3 rounded-[5px] border border-ink/10 bg-white p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end md:max-w-2xl"><label className="field-label">Check-in<input className="field-input" type="date" min={today} value={selectedCheckIn} onChange={(event) => { setLoading(true); setCheckIn(event.target.value) }} /></label><label className="field-label">Check-out<input className="field-input" type="date" min={selectedCheckIn || today} value={selectedCheckOut} onChange={(event) => { setLoading(true); setCheckOut(event.target.value) }} /></label><CalendarDays size={20} className="mb-3 hidden text-forest sm:block" /></div>
     </div></section>
     <section className="mx-auto max-w-[1440px] px-5 py-9 md:px-10 md:py-12">
       {notice && <p role="status" className="mb-5 rounded-[4px] bg-mist px-4 py-3 text-sm text-forest">{notice}</p>}{error && <p role="alert" className="mb-5 rounded-[4px] bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
@@ -84,6 +89,6 @@ export default function Rooms() {
       {loading ? <div className="grid min-h-48 place-items-center text-forest"><span className="animate-pulse text-sm">Finding your room...</span></div> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredRooms.map((room) => <RoomCard key={room.id} room={room} availability={room.isAvailableForDates ?? !room.isBooked} onBook={startBooking} />)}</div>}
       {!loading && filteredRooms.length === 0 && <div className="py-16 text-center text-sm text-ink/55">No rooms match those dates and filters.</div>}
     </section>
-    {selectedRoom && <RoomBookingModal room={selectedRoom} initialCheckIn={checkIn} initialCheckOut={checkOut} onClose={() => setSelectedRoom(null)} onBooked={bookingComplete} />}
+    {selectedRoom && <RoomBookingModal room={selectedRoom} initialCheckIn={selectedCheckIn} initialCheckOut={selectedCheckOut} onClose={() => setSelectedRoom(null)} onBooked={bookingComplete} />}
   </div>
 }

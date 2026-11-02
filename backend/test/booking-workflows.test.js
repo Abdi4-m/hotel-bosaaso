@@ -107,6 +107,31 @@ test("booking creation accepts and persists integer room IDs", async (t) => {
   assert.equal(createdData.totalPrice, 200.5);
 });
 
+test("booking creation rejects past check-in dates before querying Prisma", async (t) => {
+  const originalTransaction = prisma.$transaction;
+  prisma.$transaction = async () => assert.fail("Past dates must be rejected before querying Prisma");
+  t.after(() => {
+    prisma.$transaction = originalTransaction;
+  });
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const res = response();
+  await createBooking({
+    body: {
+      roomId: 5,
+      checkIn: yesterday.toISOString().slice(0, 10),
+      checkOut: today.toISOString().slice(0, 10),
+    },
+    user: { id: 3 },
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, "Check-in must be today or later");
+});
+
 test("a customer can reconfirm their cancelled booking", async (t) => {
   const originalFindUnique = prisma.booking.findUnique;
   const originalTransaction = prisma.$transaction;

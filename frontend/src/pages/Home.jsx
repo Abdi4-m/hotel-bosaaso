@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom'
 import FoodCard from '../components/FoodCard'
 import RoomCard from '../components/RoomCard'
 import api from '../services/api'
+import { useTodayDate } from '../utils/date'
 
 const heroImage = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=2200&q=90'
 
 export default function Home() {
+  const today = useTodayDate()
   const [foods, setFoods] = useState([])
   const [rooms, setRooms] = useState([])
   const [error, setError] = useState('')
@@ -26,7 +28,7 @@ export default function Home() {
         if (active) setError(requestError.response?.data?.error || 'The latest menu and room listings could not be loaded.')
       })
     return () => { active = false }
-  }, [])
+  }, [today])
 
   return <div className="page-enter">
     <section className="relative flex min-h-[620px] items-end overflow-hidden bg-ink md:min-h-[680px]"><img src={heroImage} alt="A warmly lit dining room set for dinner" className="absolute inset-0 h-full w-full object-cover object-center" /><div className="absolute inset-0 bg-ink/50" /><div className="relative mx-auto flex w-full max-w-[1440px] items-end justify-between gap-8 px-5 pb-12 pt-28 text-white md:px-10 md:pb-16"><div className="max-w-3xl"><p className="eyebrow reveal-up text-[10px] text-white/75 md:text-xs">Bosaso · Somalia</p><h1 className="font-display reveal-up delay-1 mt-5 text-5xl leading-[.98] md:text-7xl lg:text-[92px]">Rooms for the<br />good part.</h1><p className="reveal-up delay-2 mt-6 max-w-md text-sm leading-6 text-white/80 md:text-base">A welcoming hotel with a generous table, thoughtful rooms, and nowhere else you need to be.</p><div className="reveal-up delay-3 mt-8 flex flex-wrap gap-3"><Link to="/rooms" className="inline-flex items-center gap-3 rounded-full bg-paper px-6 py-3.5 text-sm font-semibold text-ink transition-colors hover:bg-mist">Find your room <ArrowUpRight size={16} /></Link><Link to="/menu" className="inline-flex items-center gap-3 rounded-full border border-white/50 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10">See the menu <ArrowUpRight size={16} /></Link></div></div><a href="#welcome" className="mb-1 hidden h-12 w-12 shrink-0 place-items-center rounded-full border border-white/45 text-white transition-transform hover:translate-y-1 md:grid" aria-label="Scroll to discover"><ArrowDown size={19} /></a></div><div className="absolute right-5 top-7 hidden text-right text-[10px] uppercase tracking-[.14em] text-white/70 md:block md:right-10">Rooms · Restaurant · A slower pace</div></section>
