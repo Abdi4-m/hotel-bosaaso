@@ -5,6 +5,7 @@ import ReceiptModal from '../components/ReceiptModal'
 import useToast from '../context/useToast'
 import { useAuth } from '../context/useAuth'
 import api from '../services/api'
+import { useTodayDate } from '../utils/date'
 
 const tabs = [{ id: 'foods', label: 'Food menu', icon: Utensils }, { id: 'rooms', label: 'Rooms', icon: Inbox }, { id: 'messages', label: 'Messages', icon: ArrowUpRight }, { id: 'users', label: 'Registered Users', icon: UsersRound }, { id: 'orders', label: 'Food Orders', icon: ReceiptText }, { id: 'bookings', label: 'Room bookings', icon: CalendarDays }]
 const emptyFood = { title: '', description: '', price: '', image: '', category: '', isAvailable: true }
@@ -16,6 +17,7 @@ function fetchDashboardData() { return Promise.all([api.get('/foods'), api.get('
 
 export default function AdminDashboard() {
   const { user: currentUser } = useAuth()
+  const today = useTodayDate()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('foods')
   const [foods, setFoods] = useState([])
@@ -48,6 +50,7 @@ export default function AdminDashboard() {
   const latestActivityId = useRef(0)
   const activityReady = useRef(false)
   const refreshRef = useRef(null)
+  const availabilityDate = useRef(today)
 
   async function loadData(showLoading = true) {
     if (showLoading) setLoading(true)
@@ -82,6 +85,17 @@ export default function AdminDashboard() {
     })
     return () => { active = false }
   }, [])
+  useEffect(() => {
+    if (availabilityDate.current === today) return
+    availabilityDate.current = today
+    let active = true
+    api.get('/rooms').then(({ data }) => {
+      if (active) setRooms(data)
+    }).catch((requestError) => {
+      if (active) setError(requestError.response?.data?.error || 'Room availability could not be refreshed.')
+    })
+    return () => { active = false }
+  }, [today])
   useEffect(() => {
     refreshRef.current = () => loadData(false)
   })
@@ -294,7 +308,7 @@ export default function AdminDashboard() {
 
   const activeCount = activeTab === 'foods' ? foods.length : activeTab === 'rooms' ? rooms.length : activeTab === 'messages' ? messages.length : activeTab === 'users' ? users.length : activeTab === 'orders' ? orders.length : bookings.length
   const visibleOrders = orders.filter((order) => orderFilter === 'ALL' || order.status === orderFilter)
-  return <div className="min-h-[75vh] bg-paper">
+  return <div className="admin-dashboard min-h-[75vh] bg-paper">
     <div className="border-b border-ink/10 bg-mist/65"><div className="mx-auto max-w-[1440px] px-5 py-10 md:px-10 md:py-14"><p className="eyebrow text-[10px] text-citrus">The back office</p><div className="mt-2 flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-display text-4xl md:text-5xl">Admin dashboard</h1><p className="mt-2 text-sm text-ink/55">Keep the good things in order.</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setActivityOpen((value) => !value); setUnseenActivityCount(0) }} className="relative inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2.5 text-xs font-semibold hover:border-forest"><Bell size={14} /> Activity{unseenActivityCount > 0 && <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-citrus px-1 text-[10px] text-white">{unseenActivityCount}</span>}</button><button type="button" onClick={openPageViews} className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2.5 text-xs font-semibold hover:border-forest"><Eye size={14} /> Page Views {stats?.totalPageViews?.toLocaleString() ?? '—'}</button><button onClick={loadData} className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white px-4 py-2.5 text-xs font-semibold hover:border-forest"><ArrowDown size={14} /> Refresh</button></div></div>{activityOpen && <div className="mt-5 max-h-72 overflow-y-auto rounded-[5px] border border-ink/10 bg-white p-4">{activities.length ? activities.slice().reverse().slice(0, 10).map((activity) => <div key={activity.id} className="border-b border-ink/10 py-2 last:border-0"><p className="text-xs font-semibold">{activity.actor}</p><p className="mt-1 text-xs text-ink/65">{activity.action}</p><p className="mt-1 text-[10px] text-ink/40">{formatDate(activity.createdAt)}</p></div>) : <p className="text-xs text-ink/50">No website activity recorded yet.</p>}</div>}</div></div>
     <div className="mx-auto max-w-[1440px] px-5 py-8 md:px-10 md:py-12"><div className="mb-7 flex flex-wrap items-center justify-between gap-4"><div className="flex flex-wrap gap-1 rounded-full border border-ink/10 bg-white p-1">{tabs.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => { setActiveTab(id); setError('') }} className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold transition-colors md:px-5 ${activeTab === id ? 'bg-forest text-white' : 'text-ink/60 hover:text-ink'}`}><Icon size={15} />{label}</button>)}</div><p className="text-xs text-ink/45">{activeCount} {activeTab === 'messages' ? 'messages' : activeTab === 'rooms' ? 'rooms' : activeTab === 'users' ? 'registered users' : activeTab === 'orders' ? 'orders' : activeTab === 'bookings' ? 'bookings' : 'menu items'}</p></div>
       {notice && <p role="status" className="mb-5 rounded-[4px] bg-mist px-4 py-3 text-sm text-forest">{notice}</p>}{error && <p role="alert" className="mb-5 rounded-[4px] bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}

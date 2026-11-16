@@ -17,8 +17,19 @@ function parseDateRange(checkInValue, checkOutValue) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   if (checkIn < today) return { error: "Check-in must be today or later" };
+  if (checkOut > getMaxCheckOutDate(checkIn)) {
+    return { error: "Check-out cannot be more than 6 months after check-in" };
+  }
 
   return { checkIn, checkOut };
 }
 
-module.exports = { parseDateRange };
+function getMaxCheckOutDate(checkIn) {
+  const targetMonth = checkIn.getUTCFullYear() * 12 + checkIn.getUTCMonth() + 6;
+  const targetYear = Math.floor(targetMonth / 12);
+  const targetMonthIndex = targetMonth % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, targetMonthIndex, Math.min(checkIn.getUTCDate(), lastDay)));
+}
+
+module.exports = { getMaxCheckOutDate, parseDateRange };

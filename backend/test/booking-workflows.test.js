@@ -95,8 +95,12 @@ test("booking creation accepts and persists integer room IDs", async (t) => {
   });
 
   const res = response();
+  const checkIn = new Date();
+  checkIn.setUTCHours(0, 0, 0, 0);
+  const checkOut = new Date(checkIn);
+  checkOut.setUTCDate(checkOut.getUTCDate() + 2);
   await createBooking({
-    body: { roomId: 5, checkIn: "2030-11-01", checkOut: "2030-11-03" },
+    body: { roomId: 5, checkIn: checkIn.toISOString().slice(0, 10), checkOut: checkOut.toISOString().slice(0, 10) },
     user: { id: 3 },
   }, res);
 
